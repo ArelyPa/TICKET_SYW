@@ -37,9 +37,9 @@ def create_app() -> Flask:
     api = Api(
         app,
         version="1.0",
-        title=f"SyWork Desk API — Ambiente: {app_env_label}",
+        title=f"SYTIX API — Ambiente: {app_env_label}",
         description=(
-            "API para el sistema de tickets de soporte SYWork.\n\n"
+            "API para el sistema de tickets de soporte SYTIX.\n\n"
             "**Seguridad (Fase 1)**: TODAS las rutas exigen JWT Bearer + permiso módulo/acción "
             "del rol del usuario. Rutas públicas: `/api/auth/login`, `/api/auth/google` y `/health/`."
         ),
@@ -123,6 +123,23 @@ def create_app() -> Flask:
     from backend.api.routes.reports import ns as ns_reports
 
     api.add_namespace(ns_reports)
+
+    # ── spec 041 — Importación de tareas de Teamwork ────────────────────────────
+    from backend.api.routes.ticket_imports import ns as ns_ticket_imports
+
+    api.add_namespace(ns_ticket_imports)
+
+    # ── spec 042 — Integración API Teamwork v3 e Importador de Tiempos ─────────
+    from backend.api.routes.teamwork_integration import ns as ns_teamwork_integration
+    from backend.api.routes.time_imports import ns as ns_time_imports
+
+    api.add_namespace(ns_teamwork_integration)
+    api.add_namespace(ns_time_imports)  # T025/T026 — implementado en Phase 4 (US2)
+
+    # ── spec 045 — Centro Independiente de Importación de Tareas y Subtareas ──
+    from backend.api.routes.teamwork_task_imports import ns as ns_teamwork_task_imports
+
+    api.add_namespace(ns_teamwork_task_imports)
 
     # ── Health ────────────────────────────────────────────────────────────────
     ns_health = api.namespace("health", description="Estado del servicio y conectividad de DB")

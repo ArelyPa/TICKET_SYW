@@ -46,6 +46,18 @@ class ClientContactRepository:
         models = q.order_by(ClientContactModel.created_at).offset((page - 1) * page_size).limit(page_size).all()
         return [m.to_entity() for m in models], total
 
+    def get_by_name_or_email(self, client_id: uuid.UUID, value: str) -> Optional[ClientContact]:
+        """Usado por la importación de Teamwork (spec 041, research.md Decisión 7/9) para
+        resolver `Created by` contra un Usuario/cliente del Cliente ya determinado — coincidencia
+        exacta de `username` (nombre completo) o `email`, nunca aproximada."""
+        from backend.infra.models.user_model import UserModel
+        model = (self._db.query(ClientContactModel)
+                 .join(UserModel, UserModel.id == ClientContactModel.user_id)
+                 .filter(ClientContactModel.client_id == client_id,
+                         (UserModel.username == value) | (UserModel.email == value))
+                 .first())
+        return model.to_entity() if model else None
+
     def create(self, contact: ClientContact) -> ClientContact:
         model = ClientContactModel.from_entity(contact)
         self._db.add(model)

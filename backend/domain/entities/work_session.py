@@ -25,6 +25,9 @@ class WorkSession:
     # spec 028, US6/OBS-0036 (FR-020): True si el registro cae total o parcialmente fuera del
     # horario laboral del recurso — puramente informativo, nunca bloquea la creación.
     off_hours: bool = False
+    # spec 042 (FR-013): `ID` del reporte de tiempos de Teamwork — permite reimportar el mismo
+    # archivo actualizando en vez de duplicar (WorkSessionRepository.upsert_from_import).
+    external_time_id: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -32,7 +35,7 @@ class WorkSession:
     def create(cls, resource_id: uuid.UUID, ticket_id: uuid.UUID, work_date: date,
                duration_minutes: int, created_by: uuid.UUID, note: Optional[str] = None,
                started_at: Optional[datetime] = None, ended_at: Optional[datetime] = None,
-               off_hours: bool = False) -> "WorkSession":
+               off_hours: bool = False, external_time_id: Optional[str] = None) -> "WorkSession":
         return cls(
             id=uuid.uuid4(),
             resource_id=resource_id,
@@ -44,6 +47,7 @@ class WorkSession:
             started_at=started_at,
             ended_at=ended_at,
             off_hours=off_hours,
+            external_time_id=external_time_id,
         )
 
 

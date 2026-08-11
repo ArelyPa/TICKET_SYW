@@ -20,7 +20,7 @@ interface AssignModalProps {
  * Pre-Análisis ni un QM como resolutor. */
 export default function AssignModal({ ticketId, onClose, onAssigned, forcedMode }: AssignModalProps) {
   const { message } = App.useApp()
-  const { resources, workload, availability } = useResourceCandidates(!!ticketId && forcedMode !== 'pre_analysis')
+  const { resources, workload, availability, candidateRoles } = useResourceCandidates(!!ticketId && forcedMode !== 'pre_analysis')
   const [qmCandidates, setQmCandidates] = useState<QmCandidate[]>([])
   const [mode, setMode] = useState<'resolver' | 'pre_analysis'>(forcedMode ?? 'resolver')
   const [selected, setSelected] = useState<string | undefined>()
@@ -99,6 +99,7 @@ export default function AssignModal({ ticketId, onClose, onAssigned, forcedMode 
             resources={resources}
             workload={workload}
             availability={availability}
+            candidateRoles={candidateRoles}
             selected={selected}
             onSelect={setSelected}
           />

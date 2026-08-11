@@ -25,6 +25,23 @@ def test_assign_resolver_moves_to_contacto(client, make_ticket, ticket_resource)
     assert context["ticket_priority"] == "high"
 
 
+def test_coordinador_candidates_lists_users_with_coordinador_role(client, coordinador_user):
+    response = client.get("/api/tickets/coordinador-candidates")
+    assert response.status_code == 200
+    ids = {c["id"] for c in response.get_json()}
+    assert str(coordinador_user.id) in ids
+
+
+def test_assign_resolver_mode_accepts_coordinador_user_id(client, make_ticket, coordinador_user):
+    """spec 041 (FR-013): igual que QM en pre_analysis, un Coordinador sin Recurso propio se
+    aprovisiona perezosamente al asignarlo en modo resolver."""
+    ticket = make_ticket()
+    response = _assign(client, ticket["id"], str(coordinador_user.id))
+    assert response.status_code == 200, response.get_json()
+    assert response.get_json()["ticket"]["status"] == "contacto"
+    assert response.get_json()["ticket"]["assignee"]["full_name"] == coordinador_user.username
+
+
 def test_assign_qm_moves_to_pre_analisis(client, make_ticket, qm_user):
     # OBS-0052/0053: mode=pre_analysis toma un user_id con rol QM (no un resource_id) — el
     # recurso se provisiona internamente (ver ResourceRepository.get_or_create_for_user).

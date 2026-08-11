@@ -25,6 +25,9 @@ postgres_data/
 Thumbs.db
 .worktrees/
 
+# Archivos de bloqueo temporales de MS Office (se crean al abrir un .docx/.xlsx)
+~$*
+
 # Adjuntos de tickets (Fase 1)
 uploads/
 

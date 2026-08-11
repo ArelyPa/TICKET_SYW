@@ -120,6 +120,12 @@ class ResourceRepository:
         model = self._db.query(ResourceModel).filter(ResourceModel.email == email).first()
         return model.to_entity() if model else None
 
+    def get_by_full_name(self, full_name: str) -> Optional[Resource]:
+        """Usado por la importación de Teamwork (spec 041, research.md Decisión 7) para
+        resolver `Assigned to` cuando no hay coincidencia de correo."""
+        model = self._db.query(ResourceModel).filter(ResourceModel.full_name == full_name).first()
+        return model.to_entity() if model else None
+
     def list_paginated(self, page: int = 1, page_size: int = 20, search: str | None = None, skill_code: str | None = None, active: bool | None = None) -> tuple[list[Resource], int]:
         q = self._db.query(ResourceModel)
         if skill_code:

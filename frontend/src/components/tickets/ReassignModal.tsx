@@ -17,7 +17,7 @@ interface ReassignModalProps {
  * la asignación inicial (spec 024, "las mismas sugerencias... como la asignación inicial"). */
 export default function ReassignModal({ ticketId, currentAssigneeId, onClose, onReassigned }: ReassignModalProps) {
   const { message } = App.useApp()
-  const { resources, workload, availability } = useResourceCandidates(!!ticketId)
+  const { resources, workload, availability, candidateRoles } = useResourceCandidates(!!ticketId)
   const [selected, setSelected] = useState<string | undefined>()
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
@@ -73,6 +73,7 @@ export default function ReassignModal({ ticketId, currentAssigneeId, onClose, on
         resources={candidates}
         workload={workload}
         availability={availability}
+        candidateRoles={candidateRoles}
         selected={selected}
         onSelect={setSelected}
       />

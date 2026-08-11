@@ -61,6 +61,11 @@ class TicketModel(Base):
     sla_execution_result = Column(Text, nullable=True)
     sla_execution_consumed_seconds = Column(Integer, nullable=True)
 
+    # Trazabilidad de origen externo (spec 041, migración 053): poblados solo cuando el
+    # Ticket/Tarea proviene de una importación de Teamwork.
+    external_reference_id = Column(Text, nullable=True)
+    external_reference_url = Column(Text, nullable=True)
+
     skills = relationship("SkillModel", secondary=ticket_skills_table, lazy="joined")
 
     def to_entity(self) -> Ticket:
@@ -104,6 +109,8 @@ class TicketModel(Base):
             sla_contact_consumed_seconds=self.sla_contact_consumed_seconds,
             sla_execution_result=self.sla_execution_result,
             sla_execution_consumed_seconds=self.sla_execution_consumed_seconds,
+            external_reference_id=self.external_reference_id,
+            external_reference_url=self.external_reference_url,
         )
 
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Col, Descriptions, Divider, InputNumber, Row, Select, Space, Spin, Tooltip, Typography, message } from 'antd'
+import { Button, Card, Col, Descriptions, Divider, InputNumber, Row, Select, Space, Spin, Tag, Tooltip, Typography, message } from 'antd'
 import {
   UserSwitchOutlined, SaveOutlined, ClockCircleOutlined, SwapOutlined,
   FieldTimeOutlined, PlayCircleOutlined, HistoryOutlined, UnorderedListOutlined, PaperClipOutlined,
+  LinkOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ticketService } from '../services/ticketService'
@@ -212,6 +213,17 @@ export default function TicketDetailPage() {
           {isSubtask ? 'Subtarea' : isTask ? 'Tarea' : 'Ticket'}
         </span>
         <PriorityBadge priority={ticket.priority} full />
+        {ticket.external_reference_id && (
+          ticket.external_reference_url ? (
+            <Tooltip title="Abrir la tarea original en Teamwork">
+              <a href={ticket.external_reference_url} target="_blank" rel="noopener noreferrer">
+                <Tag icon={<LinkOutlined />} color="cyan">Teamwork #{ticket.external_reference_id}</Tag>
+              </a>
+            </Tooltip>
+          ) : (
+            <Tag icon={<LinkOutlined />} color="cyan">Teamwork #{ticket.external_reference_id}</Tag>
+          )
+        )}
         {canAssign && !isTask && (ticket.status === 'nuevo' || ticket.status === 'pre_analisis') && (
           <Button type="primary" icon={<UserSwitchOutlined />} onClick={() => setAssignOpen(true)}>
             Asignar (Triage)

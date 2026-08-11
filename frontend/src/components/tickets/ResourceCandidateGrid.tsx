@@ -27,13 +27,16 @@ interface ResourceCandidateGridProps {
   availability: Record<string, Availability>
   selected: string | undefined
   onSelect: (resourceId: string) => void
+  /** spec 041 (FR-013): rol de negocio por candidato — 'Resolutor' si se omite, para no romper
+   * a los consumidores que todavía no la pasan. */
+  candidateRoles?: Record<string, 'Resolutor' | 'Coordinador'>
 }
 
 /** Grid de tarjetas de recurso con carga y disponibilidad — extraído de `AssignModal` (Triage
  * Push, spec 010/020) para que la reasignación (spec 024) muestre "las mismas sugerencias".
  * Componente "tonto": solo recibe los candidatos ya resueltos y notifica la selección. */
 export default function ResourceCandidateGrid({
-  resources, workload, availability, selected, onSelect,
+  resources, workload, availability, selected, onSelect, candidateRoles,
 }: ResourceCandidateGridProps) {
   const [search, setSearch] = useState('')
 
@@ -100,6 +103,9 @@ export default function ResourceCandidateGrid({
                 </div>
                 <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.2 }}>{r.full_name}</div>
               </div>
+              {candidateRoles?.[r.id] === 'Coordinador' && (
+                <Tag color="purple" style={{ fontSize: 10, marginBottom: 6 }}>Coordinador</Tag>
+              )}
               <div style={{ marginBottom: 8, minHeight: 22 }}>
                 {r.skills.length > 0
                   ? r.skills.slice(0, 3).map(s => (

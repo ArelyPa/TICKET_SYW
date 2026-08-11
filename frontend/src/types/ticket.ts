@@ -218,6 +218,10 @@ export interface TicketDetail extends TicketListItem {
   /** Inicio de la jornada laboral aplicable, derivado desde la creación del ticket (spec 028,
    * FR-005, OBS-0040) — permite distinguir "cuándo se creó" de "cuándo empezó a correr el SLA". */
   work_period_start: string | null
+  /** Origen Teamwork (spec 041) — ambos `null` salvo que el registro provenga de una
+   * importación. `external_reference_url` es el enlace directo a la tarea original. */
+  external_reference_id: string | null
+  external_reference_url: string | null
 }
 
 export interface TicketFormData {

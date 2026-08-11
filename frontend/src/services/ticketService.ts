@@ -12,6 +12,14 @@ export interface QmCandidate {
   active: boolean
 }
 
+/** spec 041 (FR-013): candidato Coordinador para asignación en modo resolver — `id` es un
+ * user_id, no un resource_id (mismo criterio que `QmCandidate`). */
+export interface CoordinadorCandidate {
+  id: string
+  full_name: string
+  active: boolean
+}
+
 function buildParams(filters: TicketFilters): URLSearchParams {
   const params = new URLSearchParams()
   const { status, ...rest } = filters
@@ -63,6 +71,12 @@ export const ticketService = {
    * tal cual como `assignee_id` de `assign(..., mode: 'pre_analysis')`. */
   qmCandidates: () =>
     apiClient.get<QmCandidate[]>('/api/tickets/qm-candidates').then(r => r.data),
+
+  /** spec 041 (FR-013): candidatos Coordinador para asignación/reasignación en modo resolver —
+   * por rol, no por la tabla de recursos. El `id` devuelto es un user_id; `/assign` (modo
+   * `resolver`) y `/reassign` lo resuelven a un recurso, aprovisionándolo si hace falta. */
+  coordinadorCandidates: () =>
+    apiClient.get<CoordinadorCandidate[]>('/api/tickets/coordinador-candidates').then(r => r.data),
 
   /** Reasignación de resolutor (spec 023) — corrige errores de asignación o escala por
    * complejidad, sin cambiar el estado del ticket. */

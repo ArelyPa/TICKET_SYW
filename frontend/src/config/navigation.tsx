@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { TeamOutlined, ProjectOutlined, UserOutlined, StarOutlined, DatabaseOutlined, SafetyCertificateOutlined, FileTextOutlined, DashboardOutlined, TagsOutlined, AppstoreOutlined, ClockCircleOutlined, BarChartOutlined, UnorderedListOutlined, FieldTimeOutlined, CalendarOutlined, IdcardOutlined, PieChartOutlined } from '@ant-design/icons'
+import { TeamOutlined, ProjectOutlined, UserOutlined, StarOutlined, DatabaseOutlined, SafetyCertificateOutlined, FileTextOutlined, DashboardOutlined, TagsOutlined, AppstoreOutlined, ClockCircleOutlined, BarChartOutlined, UnorderedListOutlined, FieldTimeOutlined, CalendarOutlined, IdcardOutlined, PieChartOutlined, ImportOutlined, ApiOutlined } from '@ant-design/icons'
 import type { Permission } from '../types/api'
 
 export interface NavLeaf {
@@ -25,6 +25,10 @@ export const maestrosNavItems: NavLeaf[] = [
   { key: '/client-contacts', icon: <UserOutlined />, label: 'Usuarios/cliente', module: 'client_contacts', action: 'manage' },
   { key: '/sla-rules', icon: <FieldTimeOutlined />, label: 'SLA', module: 'sla_rules', action: 'manage' },
   { key: '/catalogs', icon: <TagsOutlined />, label: 'Catálogos', module: 'catalogs' },
+  { key: '/importacion-tareas', icon: <ImportOutlined />, label: 'Importación de Tareas', module: 'ticket_imports', action: 'run' },
+  { key: '/integraciones/teamwork', icon: <ApiOutlined />, label: 'Integración Teamwork', module: 'teamwork_integration', action: 'manage' },
+  { key: '/integraciones/teamwork/importador-tareas', icon: <ImportOutlined />, label: 'Importador de Tareas y Subtareas', module: 'teamwork_integration', action: 'operate' },
+  { key: '/importacion-tiempos', icon: <ImportOutlined />, label: 'Importación de Tiempos', module: 'teamwork_integration', action: 'operate' },
 ]
 
 /** FR-006 (spec 038, US1): un Resolutor no debe descargar los catálogos administrativos

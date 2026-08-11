@@ -30,12 +30,12 @@ def send_password_reset_email(to_email: str, token: str) -> None:
     reset_link = f"{frontend_url}/reset-password?token={token}"
 
     body = (
-        "Recibimos una solicitud para restablecer tu contraseña de SyWork Desk.\n\n"
+        "Recibimos una solicitud para restablecer tu contraseña de SYTIX.\n\n"
         f"Si fuiste tú, sigue este enlace (válido por 30 minutos):\n{reset_link}\n\n"
         "Si no solicitaste esto, puedes ignorar este correo."
     )
     message = MIMEText(body)
-    message["Subject"] = "Restablecer tu contraseña — SyWork Desk"
+    message["Subject"] = "Restablecer tu contraseña — SYTIX"
     message["From"] = os.environ.get("SMTP_FROM", "no-reply@sywork.net")
     message["To"] = to_email
     _send(message)
@@ -50,12 +50,12 @@ _WELCOME_EMAIL_TEMPLATE = """\
       <table role="presentation" width="480" cellpadding="0" cellspacing="0"
              style="background:#ffffff;border-radius:8px;overflow:hidden;">
         <tr><td style="background:#1f2937;padding:20px 32px;">
-          <span style="color:#ffffff;font-size:18px;font-weight:700;">SyWork Desk</span>
+          <span style="color:#ffffff;font-size:18px;font-weight:700;">SYTIX</span>
         </td></tr>
         <tr><td style="padding:32px;">
           <h1 style="font-size:20px;color:#111827;margin:0 0 16px;">¡Bienvenido/a, {{ name }}!</h1>
           <p style="font-size:14px;color:#374151;line-height:1.5;">
-            Se creó una cuenta para vos en SyWork Desk. Estos son tus datos de acceso iniciales:
+            Se creó una cuenta para vos en SYTIX. Estos son tus datos de acceso iniciales:
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0;width:100%;">
             <tr><td style="padding:8px 12px;background:#f9fafb;border-radius:6px;">
@@ -81,7 +81,7 @@ _WELCOME_EMAIL_TEMPLATE = """\
           </p>
           <p style="font-size:12px;color:#9ca3af;line-height:1.5;margin-top:24px;">
             Este es un mensaje automático — no respondas a este correo. Tus datos se usan
-            exclusivamente para gestionar tu acceso a SyWork Desk.
+            exclusivamente para gestionar tu acceso a SYTIX.
           </p>
         </td></tr>
       </table>
@@ -108,11 +108,11 @@ def send_welcome_email(to_email: str, name: str, temp_password: str, reset_link:
     )
 
     message = MIMEMultipart("alternative")
-    message["Subject"] = "Bienvenido/a a SyWork Desk"
+    message["Subject"] = "Bienvenido/a a SYTIX"
     message["From"] = os.environ.get("SMTP_FROM", "no-reply@sywork.net")
     message["To"] = to_email
     message.attach(MIMEText(
-        f"Bienvenido/a a SyWork Desk.\n\nURL de acceso: {login_url}\n"
+        f"Bienvenido/a a SYTIX.\n\nURL de acceso: {login_url}\n"
         f"Contraseña temporal: {temp_password}\n\n"
         f"Cambiala antes de 30 minutos en: {reset_link}",
         "plain",

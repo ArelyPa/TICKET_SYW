@@ -1,24 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Empty, Input, Modal, Spin, Typography, message } from 'antd'
-import { PlusOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { Button, Empty, Input, Modal, Spin, Tag, Typography, message } from 'antd'
+import { PlusOutlined, SyncOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { projectService } from '../services/projectService'
 import { taskListService } from '../services/taskListService'
 import { ticketService } from '../services/ticketService'
+import { teamworkIntegrationService } from '../services/teamworkIntegrationService'
 import type { ProjectListItem } from '../types/project'
 import type { TaskList } from '../types/taskList'
 import type { TicketListItem } from '../types/ticket'
 import { STATUS_LABELS } from '../types/ticket'
 import { avatarColor, initials, palette, TICKET_STATUS_CHIP } from '../theme'
+import { useAuthStore } from '../store/authStore'
 
 /** Sidebar de Listas de un Proyecto — según `docs/mockup.html`, pantalla `s-lista`
  * (Cliente → Proyecto → Lista → Tarea → Subtarea). Spec 009, US3. */
 export default function ProjectListsPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const { hasPermission } = useAuthStore()
+  const canSeeTeamworkBadge = hasPermission('teamwork_integration', 'operate')
 
   const [project, setProject] = useState<ProjectListItem | null>(null)
   const [lists, setLists] = useState<TaskList[]>([])
+  const [migratedListIds, setMigratedListIds] = useState<Set<string>>(new Set())
   const [selectedListId, setSelectedListId] = useState<string | undefined>()
   const [tasks, setTasks] = useState<TicketListItem[]>([])
   const [loadingTasks, setLoadingTasks] = useState(false)
@@ -45,6 +50,13 @@ export default function ProjectListsPage() {
   }, [projectId])
 
   useEffect(() => { loadLists() }, [loadLists])
+
+  // spec 044 US5: mismo criterio que ClientsPage.tsx/ProjectsPage.tsx (research.md Decisión 7).
+  useEffect(() => {
+    if (!canSeeTeamworkBadge) return
+    teamworkIntegrationService.getMigratedRefs('task_list').then(r => setMigratedListIds(new Set(r.sytix_ids)))
+      .catch(() => {})
+  }, [canSeeTeamworkBadge])
 
   useEffect(() => {
     if (!selectedListId) { setTasks([]); return }
@@ -109,7 +121,14 @@ export default function ProjectListsPage() {
                   fontWeight: selectedListId === l.id ? 600 : 400,
                 }}
               >
-                <span style={{ fontSize: 13 }}>{l.name}</span>
+                <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {l.name}
+                  {canSeeTeamworkBadge && migratedListIds.has(l.id) && (
+                    <Tag icon={<SyncOutlined />} color="blue" style={{ fontSize: 10, lineHeight: '16px', marginRight: 0 }}>
+                      Teamwork
+                    </Tag>
+                  )}
+                </span>
                 <span style={{ fontSize: 11, color: palette.slate400 }}>{l.task_count}</span>
               </div>
             ))

@@ -42,6 +42,17 @@ class TaskListRepository:
             "position": m.position, "task_count": counts.get(m.id, 0),
         } for m in models]
 
+    def get_or_create_by_name(self, project_id: uuid.UUID, name: str) -> TaskList:
+        """Usado por la importación de Teamwork (spec 041, FR-005): reutiliza la Lista de Tareas
+        si ya existe una con ese nombre en el Proyecto, o la crea al final del orden actual."""
+        existing = self.get_by_project_and_name(project_id, name)
+        if existing:
+            return existing
+        return self.create(TaskList(
+            id=uuid.uuid4(), project_id=project_id, name=name,
+            position=self.next_position(project_id),
+        ))
+
     def create(self, task_list: TaskList) -> TaskList:
         model = TaskListModel(
             id=task_list.id, project_id=task_list.project_id,

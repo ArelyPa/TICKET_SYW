@@ -28,6 +28,10 @@ import MyProfilePage from './pages/MyProfilePage'
 import WorkSessionsPage from './pages/WorkSessionsPage'
 import TimeReportPage from './pages/TimeReportPage'
 import ReportsPage from './pages/ReportsPage'
+import TicketImportsPage from './pages/TicketImportsPage'
+import TeamworkIntegrationPage from './pages/TeamworkIntegrationPage'
+import TeamworkTaskImporterPage from './pages/TeamworkTaskImporterPage'
+import TimeImportsPage from './pages/TimeImportsPage'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import DefaultLanding from './components/common/DefaultLanding'
 import EnvironmentBanner, { BANNER_WIDTH } from './components/common/EnvironmentBanner'
@@ -55,6 +59,10 @@ function AppRoutes() {
         <Route path="kanban" element={<ProtectedRoute requiredPermission={{ module: 'tickets', action: ['view', 'view_assigned'] }}><KanbanPage /></ProtectedRoute>} />
         <Route path="assignment-panel" element={<ProtectedRoute requiredPermission={{ module: 'assignment_panel', action: 'view' }}><AssignmentPanelPage /></ProtectedRoute>} />
         <Route path="catalogs" element={<ProtectedRoute requiredPermission={{ module: 'catalogs', action: 'view' }} blockRoles={['Resolutor']}><CatalogsPage /></ProtectedRoute>} />
+        <Route path="importacion-tareas" element={<ProtectedRoute requiredPermission={{ module: 'ticket_imports', action: 'run' }}><TicketImportsPage /></ProtectedRoute>} />
+        <Route path="integraciones/teamwork" element={<ProtectedRoute requiredPermission={{ module: 'teamwork_integration', action: 'manage' }}><TeamworkIntegrationPage /></ProtectedRoute>} />
+        <Route path="integraciones/teamwork/importador-tareas" element={<ProtectedRoute requiredPermission={{ module: 'teamwork_integration', action: 'operate' }}><TeamworkTaskImporterPage /></ProtectedRoute>} />
+        <Route path="importacion-tiempos" element={<ProtectedRoute requiredPermission={{ module: 'teamwork_integration', action: 'operate' }}><TimeImportsPage /></ProtectedRoute>} />
         <Route path="registro-tiempos" element={<ProtectedRoute requiredPermission={{ module: 'work_sessions', action: 'view_own' }}><WorkSessionsPage /></ProtectedRoute>} />
         <Route path="reporte-tiempos" element={<ProtectedRoute requiredPermission={{ module: 'work_sessions', action: 'view_own' }}><TimeReportPage /></ProtectedRoute>} />
         <Route path="reportes" element={<ProtectedRoute requiredPermission={{ module: 'reports', action: 'view' }}><ReportsPage /></ProtectedRoute>} />
