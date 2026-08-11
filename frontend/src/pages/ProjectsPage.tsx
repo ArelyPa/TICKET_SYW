@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Button, Form, Input, InputNumber, Modal, Select, Space, Table, Tooltip, message } from 'antd'
-import { PlusOutlined, EditOutlined, StopOutlined, PlayCircleOutlined, UnorderedListOutlined, TeamOutlined } from '@ant-design/icons'
+import { Button, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Tooltip, message } from 'antd'
+import { PlusOutlined, EditOutlined, StopOutlined, PlayCircleOutlined, UnorderedListOutlined, TeamOutlined, SyncOutlined } from '@ant-design/icons'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useNavigate } from 'react-router-dom'
 import { projectService } from '../services/projectService'
 import { clientService } from '../services/clientService'
+import { teamworkIntegrationService } from '../services/teamworkIntegrationService'
 import type { ProjectListItem, ProjectFormData } from '../types/project'
 import type { ClientListItem } from '../types/client'
 import ConfirmationModal from '../components/common/ConfirmationModal'
@@ -45,8 +46,10 @@ export default function ProjectsPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('projects', 'create') || hasPermission('projects', 'edit') || hasPermission('projects', 'deactivate')
   const canManageLists = hasPermission('tickets', 'create')
+  const canSeeTeamworkBadge = hasPermission('teamwork_integration', 'operate')
 
   const [projects, setProjects] = useState<ProjectListItem[]>([])
+  const [migratedProjectIds, setMigratedProjectIds] = useState<Set<string>>(new Set())
   const [clients, setClients] = useState<ClientListItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -76,6 +79,14 @@ export default function ProjectsPage() {
     clientService.list({ active: true, page_size: 100 }).then(r => setClients(r.items))
       .catch(() => message.error('No se pudo cargar la lista de clientes'))
   }, [])
+
+  // spec 044 US5: mismo criterio que ClientsPage.tsx — solo se consulta con permiso, evita un
+  // toast de error 403 espurio para Resolutor/QM (research.md Decisión 7).
+  useEffect(() => {
+    if (!canSeeTeamworkBadge) return
+    teamworkIntegrationService.getMigratedRefs('project').then(r => setMigratedProjectIds(new Set(r.sytix_ids)))
+      .catch(() => {})
+  }, [canSeeTeamworkBadge])
 
   useEffect(() => { load() }, [page, clientFilter, search, activeFilter])
 
@@ -148,6 +159,11 @@ export default function ProjectsPage() {
       render: (v: boolean) => <StatusTag active={v} />,
       ...serverColumnFilter(ACTIVE_FILTER_OPTIONS, activeFilter === undefined ? undefined : String(activeFilter)),
     },
+    ...(canSeeTeamworkBadge ? [{
+      title: '', key: 'teamwork_origin',
+      render: (_: unknown, r: ProjectListItem) => migratedProjectIds.has(r.id)
+        ? <Tag icon={<SyncOutlined />} color="blue">Teamwork</Tag> : null,
+    }] : []),
     {
       title: 'Acciones', key: 'actions',
       render: (_: unknown, r: ProjectListItem) => (

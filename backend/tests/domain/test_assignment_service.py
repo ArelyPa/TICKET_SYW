@@ -46,3 +46,23 @@ def test_validate_accepts_active_resource_with_active_linked_user():
         ticket, _resource(user_id=uuid.uuid4(), user_active=True), "resolver")
     assert trigger == "assign_resolver"
     assert comment_type == "asignado"
+
+
+def test_validate_accepts_coordinador_role_in_resolver_mode():
+    """spec 041 (FR-013): modo 'resolver' ahora también admite rol Coordinador, no solo
+    Resolutor — mismo trigger/tipo de comentario que un Resolutor."""
+    ticket = _ticket()
+    trigger, comment_type = AssignmentService().validate(
+        ticket, _resource(user_id=uuid.uuid4(), user_active=True), "resolver",
+        assignee_role_name="Coordinador")
+    assert trigger == "assign_resolver"
+    assert comment_type == "asignado"
+
+
+def test_validate_rejects_role_outside_resolver_or_coordinador_in_resolver_mode():
+    ticket = _ticket()
+    with pytest.raises(AssignmentError) as exc:
+        AssignmentService().validate(
+            ticket, _resource(user_id=uuid.uuid4(), user_active=True), "resolver",
+            assignee_role_name="QM")
+    assert exc.value.code == "assignee_role_mismatch"

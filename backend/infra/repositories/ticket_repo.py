@@ -44,6 +44,13 @@ class TicketRepository:
         model = self._db.get(TicketModel, ticket_id)
         return model.to_entity() if model else None
 
+    def get_by_external_reference_id(self, external_reference_id: str) -> Optional[Ticket]:
+        """Lookup usado por el upsert de importación de Teamwork (spec 041, FR-009)."""
+        model = (self._db.query(TicketModel)
+                 .filter(TicketModel.external_reference_id == external_reference_id)
+                 .first())
+        return model.to_entity() if model else None
+
     def list_paginated(self, page: int = 1, page_size: int = 20, search: str | None = None,
                        client_id: uuid.UUID | None = None, project_id: uuid.UUID | None = None,
                        statuses: list[str] | None = None, priority: str | None = None,
@@ -153,11 +160,52 @@ class TicketRepository:
             sla_status=ticket.sla_status,
             sla_contact_result=ticket.sla_contact_result,
             sla_contact_consumed_seconds=ticket.sla_contact_consumed_seconds,
+            external_reference_id=ticket.external_reference_id,
+            external_reference_url=ticket.external_reference_url,
         )
         self._db.add(model)
         self._db.commit()
         self._db.refresh(model)
         return model.to_entity()
+
+    def upsert_from_import(self, *, external_reference_id: str, external_reference_url: str,
+                           record_type_id: uuid.UUID, title: str, description: str,
+                           client_id: uuid.UUID, project_id: Optional[uuid.UUID],
+                           list_id: Optional[uuid.UUID], parent_task_id: Optional[uuid.UUID],
+                           assignee_id: Optional[uuid.UUID],
+                           client_contact_id: Optional[uuid.UUID], created_by: uuid.UUID,
+                           estimated_resolution_minutes: Optional[int]) -> tuple[Ticket, bool]:
+        """Importación de Teamwork (spec 041, FR-009): busca por `external_reference_id`; si ya
+        existe, actualiza sus campos mapeados; si no, crea una Tarea nueva. Devuelve
+        `(ticket, created)` — `created=False` en un upsert que actualiza."""
+        existing = (self._db.query(TicketModel)
+                   .filter(TicketModel.external_reference_id == external_reference_id)
+                   .first())
+        if existing:
+            existing.title = title
+            existing.description = description
+            existing.client_id = client_id
+            existing.project_id = project_id
+            existing.list_id = list_id
+            existing.parent_task_id = parent_task_id
+            existing.assignee_id = assignee_id
+            existing.client_contact_id = client_contact_id
+            existing.estimated_resolution_minutes = estimated_resolution_minutes
+            existing.external_reference_url = external_reference_url
+            self._db.commit()
+            self._db.refresh(existing)
+            return existing.to_entity(), False
+
+        ticket = Ticket(
+            id=uuid.uuid4(), ticket_number=0, title=title, description=description,
+            ticket_type="incident", priority="medium", severity="s3", status="nuevo",
+            client_id=client_id, project_id=project_id, record_type_id=record_type_id,
+            list_id=list_id, parent_task_id=parent_task_id, assignee_id=assignee_id,
+            client_contact_id=client_contact_id, created_by=created_by,
+            estimated_resolution_minutes=estimated_resolution_minutes,
+            external_reference_id=external_reference_id, external_reference_url=external_reference_url,
+        )
+        return self.create(ticket), True
 
     def update_fields(self, ticket_id: uuid.UUID, **fields) -> Optional[Ticket]:
         model = self._db.get(TicketModel, ticket_id)

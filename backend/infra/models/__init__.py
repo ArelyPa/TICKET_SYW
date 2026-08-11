@@ -22,3 +22,4 @@ import backend.infra.models.ticket_timer_model  # noqa: E402, F401
 import backend.infra.models.work_session_model  # noqa: E402, F401
 import backend.infra.models.calendar_model  # noqa: E402, F401
 import backend.infra.models.report_view_model  # noqa: E402, F401
+import backend.infra.models.teamwork_integration_model  # noqa: E402, F401

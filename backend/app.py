@@ -124,6 +124,23 @@ def create_app() -> Flask:
 
     api.add_namespace(ns_reports)
 
+    # ── spec 041 — Importación de tareas de Teamwork ────────────────────────────
+    from backend.api.routes.ticket_imports import ns as ns_ticket_imports
+
+    api.add_namespace(ns_ticket_imports)
+
+    # ── spec 042 — Integración API Teamwork v3 e Importador de Tiempos ─────────
+    from backend.api.routes.teamwork_integration import ns as ns_teamwork_integration
+    from backend.api.routes.time_imports import ns as ns_time_imports
+
+    api.add_namespace(ns_teamwork_integration)
+    api.add_namespace(ns_time_imports)  # T025/T026 — implementado en Phase 4 (US2)
+
+    # ── spec 045 — Centro Independiente de Importación de Tareas y Subtareas ──
+    from backend.api.routes.teamwork_task_imports import ns as ns_teamwork_task_imports
+
+    api.add_namespace(ns_teamwork_task_imports)
+
     # ── Health ────────────────────────────────────────────────────────────────
     ns_health = api.namespace("health", description="Estado del servicio y conectividad de DB")
 

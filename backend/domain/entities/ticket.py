@@ -98,6 +98,10 @@ class Ticket:
     # se congela al cerrar/resolver/cancelar el ticket si esa fase llegó a correr.
     sla_execution_result: Optional[str] = None
     sla_execution_consumed_seconds: Optional[int] = None
+    # Trazabilidad de origen externo (spec 041): poblados solo cuando el Ticket/Tarea proviene
+    # de una importación de Teamwork.
+    external_reference_id: Optional[str] = None
+    external_reference_url: Optional[str] = None
 
     @property
     def number_display(self) -> str:

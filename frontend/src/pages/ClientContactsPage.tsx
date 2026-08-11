@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Form, Input, Modal, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd'
-import { PlusOutlined, CopyOutlined, ProjectOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons'
+import { PlusOutlined, CopyOutlined, ProjectOutlined, LockOutlined, UnlockOutlined, SyncOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { clientContactService } from '../services/clientContactService'
 import { clientService } from '../services/clientService'
 import { projectService } from '../services/projectService'
+import { teamworkIntegrationService } from '../services/teamworkIntegrationService'
 import type { ClientContact, ClientContactCreateRequest } from '../types/clientContact'
 import type { ClientListItem } from '../types/client'
 import type { ProjectListItem } from '../types/project'
 import PageToolbar from '../components/common/PageToolbar'
 import StatusTag from '../components/common/StatusTag'
 import ConfirmationModal from '../components/common/ConfirmationModal'
+import { useAuthStore } from '../store/authStore'
 
 /** Alta y consulta de Usuarios/cliente (spec 010): usuarios externos de rol Usuario/cliente.
  * La relación operativa es con el **Proyecto** — el alta elige Proyecto, el Cliente se deriva
  * de él y la membresía en el personal del proyecto se crea automáticamente. Gestionado por
  * Admin/Coordinador (permiso `client_contacts:manage`). */
 export default function ClientContactsPage() {
+  const { hasPermission } = useAuthStore()
+  const canSeeTeamworkBadge = hasPermission('teamwork_integration', 'operate')
+
   const [contacts, setContacts] = useState<ClientContact[]>([])
+  const [migratedUserIds, setMigratedUserIds] = useState<Set<string>>(new Set())
   const [clients, setClients] = useState<ClientListItem[]>([])
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -54,6 +60,13 @@ export default function ClientContactsPage() {
   }, [emailFilter, usernameFilter, clientFilter, activeFilter])
 
   useEffect(() => { load() }, [load])
+  // spec 044 US5: mismo criterio que ClientsPage.tsx (research.md Decisión 7) — el sytix_id
+  // homologado/migrado para Personal es el `user_id`, no el `id` del ClientContact.
+  useEffect(() => {
+    if (!canSeeTeamworkBadge) return
+    teamworkIntegrationService.getMigratedRefs('user').then(r => setMigratedUserIds(new Set(r.sytix_ids)))
+      .catch(() => {})
+  }, [canSeeTeamworkBadge])
   useEffect(() => {
     clientService.list({ active: true, page_size: 200 }).then(r => setClients(r.items))
       .catch(() => message.error('No se pudo cargar la lista de clientes'))
@@ -154,6 +167,11 @@ export default function ClientContactsPage() {
         : <Space size={4} wrap>{projects.map(p => <Tag key={p.id}>{p.name}</Tag>)}</Space>,
     },
     { title: 'Alta', dataIndex: 'created_at', render: (v: string) => new Date(v).toLocaleDateString('es-CO') },
+    ...(canSeeTeamworkBadge ? [{
+      title: '', key: 'teamwork_origin',
+      render: (_: unknown, contact: ClientContact) => migratedUserIds.has(contact.user_id)
+        ? <Tag icon={<SyncOutlined />} color="blue">Teamwork</Tag> : null,
+    }] : []),
     {
       title: 'Acciones',
       render: (_: unknown, contact: ClientContact) => (

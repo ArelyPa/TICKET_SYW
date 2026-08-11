@@ -6,13 +6,14 @@ import {
 import {
   PlusOutlined, EditOutlined, StopOutlined, PlayCircleOutlined, DollarOutlined,
   SettingOutlined, KeyOutlined, LockOutlined, UnlockOutlined, CopyOutlined, LinkOutlined,
-  ClockCircleOutlined,
+  ClockCircleOutlined, SyncOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { resourceService, skillService } from '../services/resourceService'
 import { userService } from '../services/userService'
 import { roleService } from '../services/roleService'
 import { catalogService } from '../services/catalogService'
+import { teamworkIntegrationService } from '../services/teamworkIntegrationService'
 import type { CatalogItem } from '../types/catalog'
 import type { Resource, ResourceFormData, Skill, ResourceCompensation, CompensationFormData } from '../types/resource'
 import type { UserAdmin } from '../types/user'
@@ -82,10 +83,12 @@ export default function TeamPage() {
   const canDeactivateUser = hasPermission('users', 'deactivate')
   const canViewCompensation = hasPermission('compensation', 'view')
   const canEditCompensation = hasPermission('compensation', 'edit')
+  const canSeeTeamworkBadge = hasPermission('teamwork_integration', 'operate')
   const isOwnProfile = (r: Resource) => r.user_id === userId
 
   const [resources, setResources] = useState<Resource[]>([])
   const [users, setUsers] = useState<UserAdmin[]>([])
+  const [migratedResourceIds, setMigratedResourceIds] = useState<Set<string>>(new Set())
   const [skills, setSkills] = useState<Skill[]>([])
   const [roles, setRoles] = useState<RoleDetail[]>([])
   const [teamOptions, setTeamOptions] = useState<CatalogItem[]>([])
@@ -138,6 +141,12 @@ export default function TeamPage() {
   }
 
   useEffect(() => { load() }, [])
+  // spec 044 US5: mismo criterio que ClientsPage.tsx (research.md Decisión 7).
+  useEffect(() => {
+    if (!canSeeTeamworkBadge) return
+    teamworkIntegrationService.getMigratedRefs('resource').then(r => setMigratedResourceIds(new Set(r.sytix_ids)))
+      .catch(() => {})
+  }, [canSeeTeamworkBadge])
   useEffect(() => {
     skillService.list(true).then(r => setSkills(r.items))
       .catch(() => message.error('No se pudo cargar el catálogo de skills'))
@@ -486,6 +495,9 @@ export default function TeamPage() {
               <Space size={4}>
                 {!row.resource && <Tag style={{ fontSize: 10, marginRight: 0 }}>Sin perfil de recurso</Tag>}
                 {!row.user && <Tag style={{ fontSize: 10, marginRight: 0 }}>Sin cuenta de acceso</Tag>}
+                {canSeeTeamworkBadge && row.resource && migratedResourceIds.has(row.resource.id) && (
+                  <Tag icon={<SyncOutlined />} color="blue" style={{ fontSize: 10, marginRight: 0 }}>Teamwork</Tag>
+                )}
               </Space>
             </div>
           </div>

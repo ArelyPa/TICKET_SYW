@@ -49,6 +49,21 @@ def test_reassign_same_assignee_is_rejected(client, make_ticket, ticket_resource
     assert len(detail["reassignments"]) == 0
 
 
+def test_reassign_to_coordinador_user_id_provisions_resource(client, make_ticket, ticket_resource,
+                                                              coordinador_user):
+    """spec 041 (FR-013): reasignar a un Coordinador sin Recurso propio funciona igual que entre
+    Resolutores — se aprovisiona su Recurso perezosamente."""
+    ticket = make_ticket()
+    client.post(f"/api/tickets/{ticket['id']}/assign",
+               json={"assignee_id": ticket_resource["id"], "mode": "resolver"})
+
+    response = _reassign(client, ticket["id"], str(coordinador_user.id))
+    assert response.status_code == 200, response.get_json()
+    data = response.get_json()
+    assert data["ticket"]["assignee"]["full_name"] == coordinador_user.username
+    assert data["reassignment"]["previous_assignee_id"] == ticket_resource["id"]
+
+
 def test_reassign_terminal_ticket_is_rejected(client, make_ticket, ticket_resource):
     ticket = make_ticket()
     client.post(f"/api/tickets/{ticket['id']}/cancel", json={"body": "Duplicado"})

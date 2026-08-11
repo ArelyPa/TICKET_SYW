@@ -48,6 +48,42 @@ class WorkSessionRepository:
         self._db.refresh(model)
         return model.to_entity()
 
+    def get_by_external_time_id(self, external_time_id: str) -> Optional[WorkSession]:
+        model = (self._db.query(WorkSessionModel)
+                 .filter(WorkSessionModel.external_time_id == external_time_id,
+                         WorkSessionModel.deleted_at.is_(None))
+                 .first())
+        return model.to_entity() if model else None
+
+    def upsert_from_import(self, work_session: WorkSession) -> tuple[WorkSession, bool]:
+        """FR-013 (spec 042): reimportar el mismo `external_time_id` actualiza en vez de
+        duplicar. Devuelve `(work_session, is_new)`."""
+        if not work_session.external_time_id:
+            return self.create(work_session), True
+        model = (self._db.query(WorkSessionModel)
+                 .filter(WorkSessionModel.external_time_id == work_session.external_time_id,
+                         WorkSessionModel.deleted_at.is_(None))
+                 .first())
+        if model is None:
+            return self.create(work_session), True
+
+        previous = _snapshot(model)
+        for f in _TRACKED_FIELDS:
+            setattr(model, f, getattr(work_session, f))
+        model.off_hours = work_session.off_hours
+        model.updated_by = work_session.created_by
+        self._db.flush()
+        self._db.add(WorkSessionEditModel(
+            work_session_id=model.id,
+            action="updated",
+            previous_values=previous,
+            new_values=_snapshot(model),
+            edited_by=work_session.created_by,
+        ))
+        self._db.commit()
+        self._db.refresh(model)
+        return model.to_entity(), False
+
     def update(self, work_session_id: uuid.UUID, actor_id: uuid.UUID, **fields) -> Optional[WorkSession]:
         model = (self._db.query(WorkSessionModel)
                  .filter(WorkSessionModel.id == work_session_id,

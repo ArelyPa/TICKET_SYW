@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Col, Divider, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Tooltip, Upload, message } from 'antd'
-import { PlusOutlined, EditOutlined, StopOutlined, PlayCircleOutlined, EyeInvisibleOutlined, EyeOutlined, DeleteOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons'
+import { Button, Col, Divider, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Tag, Tooltip, Upload, message } from 'antd'
+import { PlusOutlined, EditOutlined, StopOutlined, PlayCircleOutlined, EyeInvisibleOutlined, EyeOutlined, DeleteOutlined, UploadOutlined, DownloadOutlined, SyncOutlined } from '@ant-design/icons'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
@@ -10,6 +10,7 @@ import { CATALOG_COLOR_PALETTE } from '../types/catalog'
 import { COUNTRIES } from '../data/countries'
 import { TIMEZONES } from '../data/timezones'
 import apiClient from '../services/apiClient'
+import { teamworkIntegrationService } from '../services/teamworkIntegrationService'
 import type {
   ClientListItem, ClientDetail, ClientFormData, ClientSystem, ClientSystemFormData,
   ClientAccess, ClientAccessFormData, ClientAccessCredential, ClientAccessCredentialFormData,
@@ -53,8 +54,10 @@ export default function ClientsPage() {
   const { hasPermission, role } = useAuthStore()
   const canManage = hasPermission('clients', 'create') || hasPermission('clients', 'edit') || hasPermission('clients', 'deactivate')
   const canSeeSensitive = role?.name === 'Admin' || role?.name === 'Coordinador'
+  const canSeeTeamworkBadge = hasPermission('teamwork_integration', 'operate')
 
   const [clients, setClients] = useState<ClientListItem[]>([])
+  const [migratedClientIds, setMigratedClientIds] = useState<Set<string>>(new Set())
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -80,6 +83,15 @@ export default function ClientsPage() {
   const [accessForm] = Form.useForm<ClientAccessFormData>()
 
   useEffect(() => { catalogService.list('access-types').then(res => setAccessTypes(res.items as AccessTypeCatalogItem[])) }, [])
+
+  // spec 044 US5: distintivo de trazabilidad "Teamwork" — solo se consulta si el rol tiene
+  // permiso de integración (Resolutor/QM ven esta pantalla pero no ese permiso, research.md
+  // Decisión 7), evitando un toast de error 403 espurio en el uso diario.
+  useEffect(() => {
+    if (!canSeeTeamworkBadge) return
+    teamworkIntegrationService.getMigratedRefs('client').then(r => setMigratedClientIds(new Set(r.sytix_ids)))
+      .catch(() => {})
+  }, [canSeeTeamworkBadge])
 
   const load = async () => {
     setLoading(true)
@@ -333,6 +345,11 @@ export default function ClientsPage() {
       render: (v: boolean) => <StatusTag active={v} />,
       ...serverColumnFilter(ACTIVE_FILTER_OPTIONS, activeFilter === undefined ? undefined : String(activeFilter)),
     },
+    ...(canSeeTeamworkBadge ? [{
+      title: '', key: 'teamwork_origin',
+      render: (_: unknown, record: ClientListItem) => migratedClientIds.has(record.id)
+        ? <Tag icon={<SyncOutlined />} color="blue">Teamwork</Tag> : null,
+    }] : []),
     {
       title: 'Acciones', key: 'actions',
       render: (_: unknown, record: ClientListItem) => (

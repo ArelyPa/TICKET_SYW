@@ -18,6 +18,7 @@ class WorkSessionModel(Base):
     started_at = Column(TIMESTAMP(timezone=True), nullable=True)
     ended_at = Column(TIMESTAMP(timezone=True), nullable=True)
     off_hours = Column(Boolean, nullable=False, server_default=text("false"))
+    external_time_id = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
@@ -37,6 +38,7 @@ class WorkSessionModel(Base):
             ended_at=self.ended_at,
             updated_by=self.updated_by,
             off_hours=self.off_hours,
+            external_time_id=self.external_time_id,
             created_at=self.created_at,
             updated_at=self.updated_at,
         )
@@ -55,6 +57,7 @@ class WorkSessionModel(Base):
             ended_at=work_session.ended_at,
             updated_by=work_session.updated_by,
             off_hours=work_session.off_hours,
+            external_time_id=work_session.external_time_id,
         )
 
 

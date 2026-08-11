@@ -109,6 +109,19 @@ def qm_user(db_session, unique_name):
     return UserRepository(db_session).create(user)
 
 
+@pytest.fixture()
+def coordinador_user(db_session, unique_name):
+    """spec 041 (FR-013): usuario Coordinador de prueba sin perfil de recurso propio — mismo
+    patrón que `qm_user` (candidatos listados/asignados por rol, no por `resources`)."""
+    from backend.infra.repositories.role_repo import RoleRepository
+    coordinador_role = RoleRepository(db_session).get_by_name("Coordinador")
+    user = User(
+        id=uuid.uuid4(), email=f"test.coord.{unique_name}@sywork.net",
+        username=f"test_coord_{unique_name}", role=coordinador_role, active=True,
+    )
+    return UserRepository(db_session).create(user)
+
+
 # ── Fixtures compartidos de tickets (usados por tests/api y tests/infra) ────────
 
 @pytest.fixture()

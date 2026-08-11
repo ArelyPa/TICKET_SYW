@@ -104,6 +104,12 @@ _qm_candidate_out = ns.model("QmCandidate", {
     "active": fields.Boolean(),
 })
 
+_coordinador_candidate_out = ns.model("CoordinadorCandidate", {
+    "id": fields.String(description="UUID del usuario (no del recurso — spec 041)"),
+    "full_name": fields.String(),
+    "active": fields.Boolean(),
+})
+
 _reassign_input = ns.model("TicketReassignInput", {
     "assignee_id": fields.String(required=True, description="UUID del nuevo resolutor"),
     "reason": fields.String(description="Motivo de la reasignación (opcional)"),
@@ -335,6 +341,11 @@ _ticket_detail_out = ns.inherit("TicketDetail", _ticket_out, {
     "work_period_start": fields.String(
         allow_null=True, description="Inicio de la jornada laboral aplicable, derivado a partir "
                                      "de la creación del ticket (spec 028, FR-005, OBS-0040)"),
+    "external_reference_id": fields.String(
+        allow_null=True, description="ID original en Teamwork (spec 041); null salvo que el "
+                                     "registro provenga de una importación"),
+    "external_reference_url": fields.String(
+        allow_null=True, description="Enlace directo a la tarea original en Teamwork (spec 041)"),
     "locked_fields": fields.List(fields.String(), description="Campos no editables en el estado actual (FR-010)"),
     "close_eligible": fields.Boolean(description="true si acepta cierre (aceptado o 3+ días resuelto)"),
     "valid_actions": fields.List(fields.String(), description="Ticket: triggers FSM ejecutables "
@@ -570,6 +581,8 @@ def _ticket_detail(ticket: Ticket, db) -> dict:
         "reassignments": TicketRepository(db).list_reassignments(ticket.id),
         "skills": [{"id": str(s.id), "code": s.code, "label": s.label} for s in (ticket.skills or [])],
         "sla": sla_service.compute_state(ticket, datetime.now(timezone.utc), **_resolve_sla_context(db, ticket)),
+        "external_reference_id": ticket.external_reference_id,
+        "external_reference_url": ticket.external_reference_url,
     })
     d.update(_sla_timestamps(db, ticket))
     return d
@@ -1184,6 +1197,33 @@ class TicketQmCandidates(Resource):
             return server_error()
 
 
+@ns.route("/coordinador-candidates")
+class TicketCoordinadorCandidates(Resource):
+    @ns.doc("coordinador_candidates")
+    @ns.response(200, "Usuarios con rol Coordinador, candidatos para asignación (modo resolver)",
+                [_coordinador_candidate_out])
+    @ns.response(401, "No autenticado", _error)
+    @ns.response(403, "Sin permiso tickets:assign", _error)
+    @ns.response(500, "Error interno del servidor", _error)
+    @require_permission("tickets", "assign")
+    def get(self):
+        """spec 041 (FR-013): candidatos para asignar/reasignar un Ticket/Tarea a un
+        Coordinador — se listan por rol, igual que `qm-candidates`, porque un Coordinador puede
+        no tener perfil de Recurso propio. El `id` devuelto es el `user_id`; `POST /assign`
+        (modo `resolver`) y `POST /reassign` lo resuelven a un recurso (creándolo si hace falta,
+        ver `ResourceRepository.get_or_create_for_user`)."""
+        try:
+            db = get_db()
+            users, _total = UserRepository(db).list_paginated(
+                page=1, page_size=200, role="Coordinador")
+            return [
+                {"id": str(u.id), "full_name": u.username, "active": u.active}
+                for u in users
+            ], 200
+        except Exception:
+            return server_error()
+
+
 @ns.route("/<string:ticket_id>/assign")
 @ns.param("ticket_id", "UUID del ticket")
 class TicketAssign(Resource):
@@ -1234,6 +1274,17 @@ class TicketAssign(Resource):
                 if assignee is not None and assignee.user_id is not None:
                     owner = UserRepository(db).get_by_id(assignee.user_id)
                     assignee_role_name = owner.role.name if owner else None
+                elif assignee is None:
+                    # spec 041 (FR-013): en modo resolver, `assignee_id` puede venir de
+                    # `GET /coordinador-candidates` (un user_id, no un resource_id) cuando el
+                    # Coordinador elegido no tiene perfil de Recurso propio — mismo
+                    # aprovisionamiento perezoso que ya usa mode=pre_analysis para QM.
+                    candidate_user = UserRepository(db).get_by_id(assignee_id)
+                    if candidate_user and candidate_user.role.name == "Coordinador":
+                        assignee_role_name = candidate_user.role.name
+                        assignee = resource_repo.get_or_create_for_user(candidate_user)
+                        assignee.active = candidate_user.active
+                        assignee.user_active = candidate_user.active
             trigger, comment_type = _assign_svc.validate(ticket, assignee, mode, assignee_role_name)
             # A partir de aquí, `assignee_id` SIEMPRE es el resource_id (para mode=pre_analysis
             # se reemplaza el user_id recibido por el resource_id resuelto/provisionado arriba),
@@ -1309,7 +1360,18 @@ class TicketReassign(Resource):
             ticket, err = _get_ticket_or_404(db, ticket_id)
             if err:
                 return err
-            new_assignee = ResourceRepository(db).get_by_id(new_assignee_id)
+            resource_repo = ResourceRepository(db)
+            new_assignee = resource_repo.get_by_id(new_assignee_id)
+            if new_assignee is None:
+                # spec 041 (FR-013): `assignee_id` puede venir de `GET /coordinador-candidates`
+                # (un user_id) cuando el Coordinador elegido no tiene perfil de Recurso propio —
+                # mismo aprovisionamiento perezoso que `/assign`.
+                candidate_user = UserRepository(db).get_by_id(new_assignee_id)
+                if candidate_user and candidate_user.role.name == "Coordinador":
+                    new_assignee = resource_repo.get_or_create_for_user(candidate_user)
+                    new_assignee.active = candidate_user.active
+                    new_assignee.user_active = candidate_user.active
+                    new_assignee_id = new_assignee.id
             missing_skills = _reassign_svc.validate(ticket, new_assignee)
 
             ticket_repo = TicketRepository(db)

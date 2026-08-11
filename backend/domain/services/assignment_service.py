@@ -16,9 +16,13 @@ ASSIGN_MODES = {
 }
 
 # OBS-0053: rol de negocio exigido al usuario vinculado al recurso asignado, según el modo.
+# spec 041 (FR-013): el modo "resolver" ahora admite además usuarios con rol Coordinador, para
+# poder asignar Tickets/Tareas migrados desde Teamwork cuyo "Assigned to" original corresponde a
+# alguien con ese rol en SYTIX — mismo patrón de asignación que un Resolutor, sin transición ni
+# tipo de comentario distintos (research.md Decisión 6).
 ASSIGN_MODE_REQUIRED_ROLE = {
-    "resolver": "Resolutor",
-    "pre_analysis": "QM",
+    "resolver": {"Resolutor", "Coordinador"},
+    "pre_analysis": {"QM"},
 }
 
 
@@ -40,11 +44,12 @@ class AssignmentService:
         # OBS-0052/0053: el modo decide el estado destino (resolver→contacto, pre_analysis→
         # pre_analisis) — antes no se validaba que el usuario asignado tuviera el rol de negocio
         # correspondiente, permitiendo enviar un Resolutor a Pre-Análisis (estado propio de QM).
-        required_role = ASSIGN_MODE_REQUIRED_ROLE[mode]
-        if assignee_role_name is not None and assignee_role_name != required_role:
+        required_roles = ASSIGN_MODE_REQUIRED_ROLE[mode]
+        if assignee_role_name is not None and assignee_role_name not in required_roles:
+            expected = " o ".join(sorted(required_roles))
             raise AssignmentError(
                 "assignee_role_mismatch",
-                f"El usuario seleccionado no tiene rol {required_role}, requerido para este modo de asignación")
+                f"El usuario seleccionado no tiene rol {expected}, requerido para este modo de asignación")
         trigger, comment_type = ASSIGN_MODES[mode]
         if not ticket_fsm.can_transition(ticket.status, trigger):
             # deja que apply() genere el 409 con las acciones válidas en español
