@@ -599,15 +599,18 @@ def test_sync_tasks_creates_hierarchy_and_skips_unmapped_project(client, unique_
         resp = MagicMock()
         resp.status_code = 200
         resp.raise_for_status.side_effect = None
-        resp.json.return_value = {"tasks": [
-            {"id": task_parent_tw_id, "name": parent_title, "description": "desc padre",
-             "projectId": project_tw_id, "tasklistId": tasklist_tw_id},
-            {"id": task_child_tw_id, "name": child_title, "description": "desc hija",
-             "projectId": project_tw_id, "tasklistId": tasklist_tw_id,
-             "parentTaskId": task_parent_tw_id},
-            {"id": task_unmapped_tw_id, "name": f"QA45 Sin Proyecto {unique_name}",
-             "projectId": f"unmapped-{unique_name}"},
-        ]}
+        resp.json.return_value = {
+            "tasks": [
+                {"id": task_parent_tw_id, "name": parent_title, "description": "desc padre",
+                 "tasklistId": tasklist_tw_id},
+                {"id": task_child_tw_id, "name": child_title, "description": "desc hija",
+                 "tasklistId": tasklist_tw_id, "parentTaskId": task_parent_tw_id},
+                {"id": task_unmapped_tw_id, "name": f"QA45 Sin Proyecto {unique_name}"},
+            ],
+            # El Proyecto de una Tarea real nunca viene en la Tarea misma — se deriva vía
+            # `include=tasklists` sidecargado (ver fetch_tasks, corrección post-implementación).
+            "included": {"tasklists": {tasklist_tw_id: {"projectId": project_tw_id}}},
+        }
         return resp
 
     with patch("backend.infra.importers.teamwork_connection_client.requests.get") as mock_get:

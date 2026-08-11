@@ -109,19 +109,26 @@ def test_preview_classifies_ready_and_blocked_stricter_than_sync_tasks(client, d
         resp = MagicMock()
         resp.status_code = 200
         resp.raise_for_status.side_effect = None
-        resp.json.return_value = {"tasks": [
-            {"id": task_ready_tw, "name": f"QA48 Lista {unique_name}", "createdAt": today,
-             "projectId": ctx["project_tw_id"], "tasklistId": ctx["tasklist_tw_id"],
-             "assignees": {"userIds": [ctx["person_tw_id"]]}},
-            {"id": task_blocked_assignee_tw, "name": f"QA48 Sin Asignado {unique_name}", "createdAt": today,
-             "projectId": ctx["project_tw_id"], "tasklistId": ctx["tasklist_tw_id"],
-             "assignees": {"userIds": [f"unmapped-person-{unique_name}"]}},
-            {"id": task_blocked_tasklist_tw, "name": f"QA48 Sin Lista {unique_name}", "createdAt": today,
-             "projectId": ctx["project_tw_id"], "tasklistId": f"unmapped-tasklist-{unique_name}"},
-            {"id": task_outside_range_tw, "name": f"QA48 Fuera de Rango {unique_name}",
-             "createdAt": "2020-01-01", "projectId": ctx["project_tw_id"],
-             "tasklistId": ctx["tasklist_tw_id"]},
-        ]}
+        resp.json.return_value = {
+            "tasks": [
+                {"id": task_ready_tw, "name": f"QA48 Lista {unique_name}", "createdAt": today,
+                 "tasklistId": ctx["tasklist_tw_id"],
+                 "assignees": {"userIds": [ctx["person_tw_id"]]}},
+                {"id": task_blocked_assignee_tw, "name": f"QA48 Sin Asignado {unique_name}", "createdAt": today,
+                 "tasklistId": ctx["tasklist_tw_id"],
+                 "assignees": {"userIds": [f"unmapped-person-{unique_name}"]}},
+                {"id": task_blocked_tasklist_tw, "name": f"QA48 Sin Lista {unique_name}", "createdAt": today,
+                 "tasklistId": f"unmapped-tasklist-{unique_name}"},
+                {"id": task_outside_range_tw, "name": f"QA48 Fuera de Rango {unique_name}",
+                 "createdAt": "2020-01-01", "tasklistId": ctx["tasklist_tw_id"]},
+            ],
+            # El Proyecto de una Tarea real nunca viene en la Tarea misma — se deriva vía
+            # `include=tasklists` sidecargado (ver fetch_tasks, corrección post-implementación).
+            "included": {"tasklists": {
+                ctx["tasklist_tw_id"]: {"projectId": ctx["project_tw_id"]},
+                f"unmapped-tasklist-{unique_name}": {"projectId": ctx["project_tw_id"]},
+            }},
+        }
         return resp
 
     with patch("backend.infra.importers.teamwork_connection_client.requests.get") as mock_get:
@@ -162,15 +169,22 @@ def test_confirm_creates_only_ready_rows_and_is_idempotent(client, db_session, u
         resp = MagicMock()
         resp.status_code = 200
         resp.raise_for_status.side_effect = None
-        resp.json.return_value = {"tasks": [
-            {"id": task_ready_tw, "name": parent_title, "createdAt": today,
-             "projectId": ctx["project_tw_id"], "tasklistId": ctx["tasklist_tw_id"]},
-            {"id": task_subtask_tw, "name": child_title, "createdAt": today,
-             "projectId": ctx["project_tw_id"], "tasklistId": ctx["tasklist_tw_id"],
-             "parentTaskId": task_ready_tw},
-            {"id": task_blocked_tw, "name": f"QA48 Bloqueada {unique_name}", "createdAt": today,
-             "projectId": ctx["project_tw_id"], "tasklistId": f"unmapped-{unique_name}"},
-        ]}
+        resp.json.return_value = {
+            "tasks": [
+                {"id": task_ready_tw, "name": parent_title, "createdAt": today,
+                 "tasklistId": ctx["tasklist_tw_id"]},
+                {"id": task_subtask_tw, "name": child_title, "createdAt": today,
+                 "tasklistId": ctx["tasklist_tw_id"], "parentTaskId": task_ready_tw},
+                {"id": task_blocked_tw, "name": f"QA48 Bloqueada {unique_name}", "createdAt": today,
+                 "tasklistId": f"unmapped-{unique_name}"},
+            ],
+            # El Proyecto de una Tarea real nunca viene en la Tarea misma — se deriva vía
+            # `include=tasklists` sidecargado (ver fetch_tasks, corrección post-implementación).
+            "included": {"tasklists": {
+                ctx["tasklist_tw_id"]: {"projectId": ctx["project_tw_id"]},
+                f"unmapped-{unique_name}": {"projectId": ctx["project_tw_id"]},
+            }},
+        }
         return resp
 
     filter_body = {"client_id": ctx["client_sytix_id"], "project_ids": [ctx["project_sytix_id"]]}
