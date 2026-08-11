@@ -201,28 +201,77 @@ def _task_related_id(item: dict, direct_key: str, nested_key: str) -> str | None
     return None
 
 
+def _assignee_ids(item: dict) -> list:
+    """Corrección post-implementación (spec 045, validación en Docker real): el payload real de
+    `GET tasks.json` nunca trae un objeto `assignees.userIds` (formato asumido originalmente) —
+    `assignees` es una lista de referencias JSON:API `{id, type}` y el listado plano de IDs vive
+    en `assigneeUserIds` (`None` si no hay asignados). Verificado contra una respuesta real de la
+    cuenta de Teamwork de este entorno."""
+    flat_ids = item.get("assigneeUserIds")
+    if flat_ids:
+        return list(flat_ids)
+    assignees = item.get("assignees") or []
+    if isinstance(assignees, dict):
+        return assignees.get("userIds") or []
+    return [a.get("id") for a in assignees if isinstance(a, dict) and a.get("id")]
+
+
 def fetch_tasks(site_url: str, api_token: str) -> list[dict]:
-    """spec 044 US3/research.md Decisión 8: `GET /projects/api/v3/tasks.json`, reutilizando
-    `_fetch_all_pages` (Decisión 1). SYTIX no soporta múltiples asignados por Ticket — la
-    reducción de `task.assignees` (lista) a un único `assignee_id` ocurre acá en Capa 2 (primer
-    elemento, o `None` si viene vacía), no en la Capa 3.
+    """spec 044 US3/research.md Decisión 8: `GET /projects/api/v3/tasks.json`. SYTIX no soporta
+    múltiples asignados por Ticket — la reducción de los asignados de la Tarea a un único
+    `assignee_id` ocurre acá en Capa 2 (primer elemento, o `None` si viene vacía), no en la Capa 3.
+
+    Corrección post-implementación (spec 045, validación en Docker real contra ~1771 Tareas
+    reales): el objeto Tarea de la API v3 NUNCA trae un `projectId`/`project` propio (solo
+    `tasklistId`) — el Proyecto se resuelve indirectamente vía `include=tasklists`, que sidecarga
+    cada Lista de Tareas referenciada (con su `projectId`) en `included.tasklists` (dict por ID).
+    Sin este fix, `project_id` quedaba siempre `None` y tanto `/sync/tasks` (spec 044) como este
+    Importador (spec 045) descartaban el 100% de las Tareas reales sin excepción — no se pudo usar
+    `_fetch_all_pages` (Decisión 1) sin cambios porque esta es la única entidad que necesita
+    acumular también el sidecargado `included` entre páginas.
 
     `created_at`/`due_date` (spec 045 US4, research.md Decisión 7) son exclusivos del filtro de
     fecha del Importador de Tareas — no se persisten en el Ticket creado (mismo criterio ya
     establecido en spec 041 para Start/Due date), quedan como string cruda de Teamwork sin
     parsear acá, la Capa 1 del importador decide con cuál de los dos filtrar."""
     url = f"{_base_url(site_url)}/projects/api/v3/tasks.json"
-    items = _fetch_all_pages(url, (api_token, "x"), {"pageSize": 250}, "tasks")
+    auth = (api_token, "x")
+    page_size = 250
+    items: list[dict] = []
+    tasklist_project_ids: dict[str, str] = {}
+    page = 1
+    while True:
+        try:
+            response = requests.get(
+                url, auth=auth,
+                params={"pageSize": page_size, "page": page, "include": "tasklists"}, timeout=30)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise TeamworkConnectionError(f"No se pudo conectar con la API v3 de Teamwork: {e}") from e
+        try:
+            payload = response.json()
+        except ValueError as e:
+            raise TeamworkConnectionError("Respuesta de la API v3 de Teamwork no es JSON válido") from e
+        page_items = payload.get("tasks", [])
+        items.extend(page_items)
+        for tasklist_id, tasklist in (payload.get("included") or {}).get("tasklists", {}).items():
+            project_id = tasklist.get("projectId")
+            if project_id is not None:
+                tasklist_project_ids[str(tasklist_id)] = str(project_id)
+        if len(page_items) < page_size or not page_items:
+            break
+        page += 1
+
     result = []
     for item in items:
-        assignees = item.get("assignees") or {}
-        assignee_ids = assignees.get("userIds") if isinstance(assignees, dict) else assignees
+        tasklist_id = _task_related_id(item, "tasklistId", "tasklist")
+        assignee_ids = _assignee_ids(item)
         result.append({
             "id": str(item.get("id")),
             "name": item.get("name"),
             "description": item.get("description"),
-            "project_id": _task_related_id(item, "projectId", "project"),
-            "tasklist_id": _task_related_id(item, "tasklistId", "tasklist"),
+            "project_id": tasklist_project_ids.get(tasklist_id) if tasklist_id else None,
+            "tasklist_id": tasklist_id,
             "parent_task_id": _task_related_id(item, "parentTaskId", "parentTask"),
             "assignee_id": str(assignee_ids[0]) if assignee_ids else None,
             "created_at": item.get("createdAt"),
