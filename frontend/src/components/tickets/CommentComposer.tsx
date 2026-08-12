@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { App, Button, Modal, Select, Space, Upload } from 'antd'
+import { App, Button, Modal, Select, Space, Typography, Upload } from 'antd'
 import { SendOutlined, UploadOutlined, ExperimentOutlined, CheckOutlined,
          CloseOutlined, StopOutlined, LockOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd'
@@ -37,10 +37,15 @@ interface CommentComposerProps {
   /** Tarea/Subtarea (spec 009): sin tipos tipificados ni acciones de Ticket — el cambio de
    * estado se hace por `TaskStatusChanger`, este composer solo registra comentarios simples. */
   restrictToInternal?: boolean
+  /** Usuario/cliente respondiendo una "Solicitud de información" (spec 046, US4/FR-009): única
+   * caja disponible para este rol, y solo cuando el ticket está en `pendiente_usuario` — el
+   * llamador (`TicketDetailPage`) ya se encarga de no renderizar este componente fuera de ese
+   * estado. */
+  clientResponseOnly?: boolean
 }
 
 /** Composer de comentarios tipificados + botones de acciones de estado (US3). */
-export default function CommentComposer({ ticket, resolutionTypes, onUpdated, restrictToInternal }: CommentComposerProps) {
+export default function CommentComposer({ ticket, resolutionTypes, onUpdated, restrictToInternal, clientResponseOnly }: CommentComposerProps) {
   const { hasPermission } = useAuthStore()
   // OBS-0056: la instancia estática `message` de 'antd' no renderiza ningún toast en esta
   // app (mismo síntoma que OBS-0029/spec 028) — se usa la instancia ligada al `<App>` de antd.
@@ -73,7 +78,8 @@ export default function CommentComposer({ ticket, resolutionTypes, onUpdated, re
     }
     setSending(true)
     try {
-      const effectiveType = restrictToInternal ? 'comentario_interno' : commentType
+      const effectiveType = clientResponseOnly ? 'respuesta_usuario'
+        : restrictToInternal ? 'comentario_interno' : commentType
       const destStatus = COMMENT_DEST_STATUS[effectiveType]
       const rawFiles = files.map(f => f.originFileObj).filter((f): f is NonNullable<typeof f> => !!f)
       await ticketService.addComment(ticket.id, effectiveType, body, rawFiles, pendingImages)
@@ -95,6 +101,29 @@ export default function CommentComposer({ ticket, resolutionTypes, onUpdated, re
     } catch (err: unknown) {
       message.error(apiError(err, 'La acción no pudo completarse'))
     }
+  }
+
+  if (clientResponseOnly) {
+    return (
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Typography.Text type="secondary">
+          El equipo de soporte solicitó información adicional. Tu respuesta quedará en el
+          historial y reanudará el trabajo sobre este registro.
+        </Typography.Text>
+        <RichTextEditor key={bodyKey} value={body} onChange={setBody}
+          placeholder="Escribe tu respuesta..." allowImages
+          onPendingImage={file => setPendingImages(prev => [...prev, file])} />
+        <Space>
+          <Upload multiple beforeUpload={() => false} fileList={files}
+            onChange={({ fileList }) => setFiles(fileList)}>
+            <Button icon={<UploadOutlined />}>Adjuntar (máx 10 MB c/u)</Button>
+          </Upload>
+          <Button type="primary" icon={<SendOutlined />} loading={sending} onClick={send}>
+            Enviar respuesta
+          </Button>
+        </Space>
+      </Space>
+    )
   }
 
   if (restrictToInternal) {

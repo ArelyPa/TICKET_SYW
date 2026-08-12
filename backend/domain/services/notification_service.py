@@ -1,4 +1,13 @@
-"""Generación de notificaciones internas (FR-023/024)."""
+"""Generación de notificaciones internas (FR-023/024).
+
+spec 046 (US6, Centro de Notificaciones del Portal): reutilizado sin cambio estructural para
+Usuario/cliente — `Notification.user_id` ya acota cada fila a su destinatario, así que
+`GET /api/notifications` ya devuelve solo lo propio sin lógica de aislamiento por Cliente
+adicional (ver research.md Decisión 6). `user_replied` (ya existente) es el evento relevante que
+ahora se genera hacia el resolutor cuando el Usuario/cliente responde una solicitud de
+información (US4); los eventos de cambio de estado y comentario público que el Portal muestra al
+propio Usuario/cliente reutilizan el mismo mecanismo, sin tabla ni tipo de evento nuevo.
+"""
 from typing import Optional
 import uuid
 

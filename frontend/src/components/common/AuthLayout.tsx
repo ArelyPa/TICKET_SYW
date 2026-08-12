@@ -10,11 +10,14 @@ interface AuthLayoutProps {
   title: string
   subtitle: string
   children: ReactNode
+  /** Color de la barra de acento bajo el copy de marca — por defecto terracota; LoginPage
+   * la ajusta por modo de login (Equipo/Portal Cliente) para reforzar la puerta activa. */
+  accentColor?: string
 }
 
 /** Panel de marca (grafito + acento terracota) + panel de formulario, compartido por
  * LoginPage y ResetPasswordPage — antes cada una repetía un Card genérico sobre gris. */
-export default function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
+export default function AuthLayout({ title, subtitle, children, accentColor = palette.brandOrange500 }: AuthLayoutProps) {
   const screens = useBreakpoint()
   const showBrandPanel = screens.md
 
@@ -38,7 +41,10 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
           <Text style={{ color: palette.slate300, fontSize: 15, marginTop: 10, maxWidth: 320, display: 'block' }}>
             Tickets, tiempos y equipo de soporte en un solo lugar.
           </Text>
-          <div style={{ marginTop: 40, width: 64, height: 4, borderRadius: 2, background: palette.brandOrange500 }} />
+          <div style={{
+            marginTop: 40, width: 64, height: 4, borderRadius: 2, background: accentColor,
+            transition: 'background 200ms cubic-bezier(0.23, 1, 0.32, 1)',
+          }} />
         </div>
       )}
       <div style={{

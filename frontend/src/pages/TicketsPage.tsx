@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { App, Button, Input, Row, Col, Select, Space, Table, Tooltip } from 'antd'
+import { App, Button, Checkbox, Input, Row, Col, Select, Space, Table, Tooltip } from 'antd'
 import {
   EyeOutlined, UserSwitchOutlined, InboxOutlined, ThunderboltOutlined,
   ClockCircleOutlined, CheckCircleOutlined, FieldTimeOutlined,
@@ -63,6 +63,8 @@ export default function TicketsPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string | undefined>()
   const [slaStatusFilter, setSlaStatusFilter] = useState<TicketListItem['sla']['status'] | undefined>()
   const [sort, setSort] = useState('urgency')
+  // spec 046 (US6, FR-014): "Asignado a mí" — solo aplica al rol Usuario/cliente.
+  const [mine, setMine] = useState(false)
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [stats, setStats] = useState<{ nuevo: number; enProgreso: number; pendienteUsuario: number; resuelto: number; vencenHoy: number } | null>(null)
 
@@ -82,13 +84,14 @@ export default function TicketsPage() {
         assignee_id: assigneeFilter,
         sla_status: slaStatusFilter,
         sort,
+        mine: isEncargado && mine ? true : undefined,
       })
       setTickets(res.items)
       setTotal(res.total)
     } finally {
       setLoading(false)
     }
-  }, [page, search, statusFilter, clientFilter, priorityFilter, severityFilter, assigneeFilter, slaStatusFilter, sort])
+  }, [page, search, statusFilter, clientFilter, priorityFilter, severityFilter, assigneeFilter, slaStatusFilter, sort, isEncargado, mine])
 
   useEffect(() => { load() }, [load])
 
@@ -251,7 +254,10 @@ export default function TicketsPage() {
 
       <PageToolbar
         filters={isEncargado
-          ? <Input.Search placeholder="Buscar por título o número..." onSearch={setSearch} allowClear style={{ width: 240 }} />
+          ? <>
+              <Input.Search placeholder="Buscar por título o número..." onSearch={setSearch} allowClear style={{ width: 240 }} />
+              <Checkbox checked={mine} onChange={e => setMine(e.target.checked)}>Asignado a mí</Checkbox>
+            </>
           : <>
               <Input.Search placeholder="Buscar por título o número..." onSearch={setSearch} allowClear style={{ width: 240 }} />
               <Select mode="multiple" placeholder="Estados" allowClear style={{ minWidth: 180 }}

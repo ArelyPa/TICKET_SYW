@@ -10,9 +10,14 @@ export interface MeResponse {
   user: AuthUser
 }
 
+/** spec 046 (FR-001/003): pestaña de Login elegida — 'team' (Equipo/Empleados) o
+ * 'client_portal' (Portal de Clientes/Colaboradores). El backend rechaza el login si el rol
+ * de la cuenta no coincide. */
+export type LoginMode = 'team' | 'client_portal'
+
 export const authService = {
-  login: (username_or_email: string, password: string) =>
-    apiClient.post<LoginResponse>('/api/auth/login', { username_or_email, password }).then(r => r.data),
+  login: (username_or_email: string, password: string, login_mode?: LoginMode) =>
+    apiClient.post<LoginResponse>('/api/auth/login', { username_or_email, password, login_mode }).then(r => r.data),
 
   google: (id_token: string) =>
     apiClient.post<LoginResponse>('/api/auth/google', { id_token }).then(r => r.data),

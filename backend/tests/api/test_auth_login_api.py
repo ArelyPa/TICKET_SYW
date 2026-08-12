@@ -127,6 +127,35 @@ def test_reset_password_with_unknown_token_returns_400(anon_client):
     assert resp.get_json()["error"] == "invalid_token"
 
 
+def test_login_mode_team_rejects_client_portal_role(client, db_session, unique_name):
+    """spec 046 FR-003: una cuenta Usuario/cliente no puede loguear por la pestaña 'team'."""
+    user = _make_login_user(db_session, unique_name, role_name="Usuario/cliente")
+    resp = client.post("/api/auth/login", json={
+        "username_or_email": user.email, "password": "Sywork2026!", "login_mode": "team",
+    })
+    assert resp.status_code == 401
+    assert resp.get_json()["error"] == "unauthorized"
+
+
+def test_login_mode_client_portal_rejects_internal_role(client, db_session, unique_name):
+    """spec 046 FR-003: una cuenta interna no puede loguear por la pestaña 'client_portal'."""
+    user = _make_login_user(db_session, unique_name, role_name="Coordinador")
+    resp = client.post("/api/auth/login", json={
+        "username_or_email": user.email, "password": "Sywork2026!", "login_mode": "client_portal",
+    })
+    assert resp.status_code == 401
+    assert resp.get_json()["error"] == "unauthorized"
+
+
+def test_login_mode_matching_role_succeeds(client, db_session, unique_name):
+    """spec 046 FR-003: el rol correcto para la pestaña elegida sigue funcionando."""
+    user = _make_login_user(db_session, unique_name, role_name="Usuario/cliente")
+    resp = client.post("/api/auth/login", json={
+        "username_or_email": user.email, "password": "Sywork2026!", "login_mode": "client_portal",
+    })
+    assert resp.status_code == 200
+
+
 def test_reset_password_rejected_for_inactive_account(anon_client, db_session, unique_name):
     user = _make_login_user(db_session, unique_name)
     token, expires_at = _auth_svc.generate_reset_token()
