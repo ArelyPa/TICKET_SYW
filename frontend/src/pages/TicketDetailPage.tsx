@@ -55,6 +55,9 @@ export default function TicketDetailPage() {
   const { hasPermission } = useAuthStore()
   const canAssign = hasPermission('tickets', 'assign')
   const canEdit = hasPermission('tickets', 'edit')
+  // spec 046 (US4): Usuario/cliente — solo puede responder una "Solicitud de información"
+  // cuando el ticket está en pendiente_usuario, nunca un comentario libre.
+  const isClientPortal = hasPermission('tickets', 'respond_client')
   // OBS-0047/0048 (spec 033): permiso dedicado para "Skills requeridas" (solo Coordinador) —
   // Admin/QM ya no pueden editarlas aunque tengan tickets:edit.
   const canManageSkills = hasPermission('tickets', 'manage_skills')
@@ -538,7 +541,7 @@ export default function TicketDetailPage() {
             size="small"
             style={{ marginTop: 16, position: 'sticky', top: 16 }}
           >
-            {isTask && (
+            {isTask && !isClientPortal && (
               <>
                 <TaskStatusChanger ticket={ticket} onUpdated={load} />
                 <Divider style={{ margin: '12px 0' }} />
@@ -549,9 +552,21 @@ export default function TicketDetailPage() {
             <div style={{ maxHeight: 420, overflowY: 'auto' }}>
               <CommentThread ticketId={ticket.id} comments={ticket.comments} />
             </div>
-            <Divider style={{ margin: '12px 0' }} />
-            <CommentComposer ticket={ticket} resolutionTypes={resolutionTypes} onUpdated={load}
-              restrictToInternal={isTask} />
+            {isClientPortal ? (
+              ticket.status === 'pendiente_usuario' && (
+                <>
+                  <Divider style={{ margin: '12px 0' }} />
+                  <CommentComposer ticket={ticket} resolutionTypes={resolutionTypes} onUpdated={load}
+                    clientResponseOnly />
+                </>
+              )
+            ) : (
+              <>
+                <Divider style={{ margin: '12px 0' }} />
+                <CommentComposer ticket={ticket} resolutionTypes={resolutionTypes} onUpdated={load}
+                  restrictToInternal={isTask} />
+              </>
+            )}
           </Card>
 
           {isTask && !isSubtask && (

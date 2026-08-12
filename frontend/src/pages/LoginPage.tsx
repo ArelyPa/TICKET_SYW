@@ -1,14 +1,23 @@
 import { useState } from 'react'
-import { App, Button, Divider, Form, Input, Modal } from 'antd'
-import { GoogleOutlined, LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons'
+import { App, Button, Divider, Form, Input, Modal, Segmented } from 'antd'
+import { GoogleOutlined, LockOutlined, MailOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { authService } from '../services/authService'
+import { authService, type LoginMode } from '../services/authService'
 import AuthLayout from '../components/common/AuthLayout'
+import { palette } from '../theme'
 
 interface LoginFormValues {
   username_or_email: string
   password: string
+}
+
+// Acento por modo de login: terracota (color primario ya usado en toda la app) para
+// Equipo, teal (ya usado como "oficial"/institucional en el calendario, spec 021) para
+// Portal Cliente — refuerza qué puerta está activa sin introducir colores nuevos.
+const MODE_ACCENT: Record<LoginMode, string> = {
+  team: palette.brandOrange500,
+  client_portal: palette.teal600,
 }
 
 export default function LoginPage() {
@@ -21,6 +30,8 @@ export default function LoginPage() {
   const [forgotOpen, setForgotOpen] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotForm] = Form.useForm<{ email: string }>()
+  // spec 046 (FR-001): "Equipo" seleccionada por defecto (Acceptance Scenario 1).
+  const [loginMode, setLoginMode] = useState<LoginMode>('team')
 
   if (isAuthenticated()) {
     navigate('/dashboard', { replace: true })
@@ -43,7 +54,8 @@ export default function LoginPage() {
   const handleSubmit = async (values: LoginFormValues) => {
     setLoading(true)
     try {
-      const { access_token, user } = await authService.login(values.username_or_email, values.password)
+      const { access_token, user } = await authService.login(
+        values.username_or_email, values.password, loginMode)
       setAuth(access_token, user)
       navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
@@ -65,7 +77,22 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Iniciar sesión" subtitle="Usa tu cuenta @sywork.net">
+    <AuthLayout
+      title="Iniciar sesión"
+      subtitle={loginMode === 'team' ? 'Usa tu cuenta @sywork.net' : 'Ingresa con tu cuenta de cliente'}
+      accentColor={MODE_ACCENT[loginMode]}
+    >
+      <Segmented
+        block
+        size="large"
+        value={loginMode}
+        onChange={value => setLoginMode(value as LoginMode)}
+        options={[
+          { value: 'team', label: (<span><TeamOutlined /> Equipo</span>) },
+          { value: 'client_portal', label: (<span><UserOutlined /> Portal Cliente</span>) },
+        ]}
+        style={{ marginBottom: 24 }}
+      />
       <Form layout="vertical" onFinish={handleSubmit} requiredMark={false}>
         <Form.Item
           name="username_or_email"
@@ -82,14 +109,20 @@ export default function LoginPage() {
           <Input.Password prefix={<LockOutlined />} placeholder="Contraseña" />
         </Form.Item>
         <Form.Item style={{ marginBottom: 0 }}>
-          <Button type="primary" htmlType="submit" block loading={loading}>
+          <Button
+            type="primary" htmlType="submit" block loading={loading}
+            style={{ background: MODE_ACCENT[loginMode], borderColor: MODE_ACCENT[loginMode] }}
+          >
             Iniciar sesión
           </Button>
         </Form.Item>
       </Form>
 
       <div style={{ textAlign: 'center', marginTop: 20 }}>
-        <Button type="link" size="small" onClick={() => setForgotOpen(true)}>
+        <Button
+          type="link" size="small" onClick={() => setForgotOpen(true)}
+          style={{ color: MODE_ACCENT[loginMode] }}
+        >
           ¿Olvidaste tu contraseña?
         </Button>
       </div>

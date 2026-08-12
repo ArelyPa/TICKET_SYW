@@ -544,7 +544,7 @@ def _parent_summary(ticket: Ticket, db) -> dict | None:
     return {"id": str(parent.id), "ticket_number": parent.number_display, "title": parent.title}
 
 
-def _ticket_detail(ticket: Ticket, db) -> dict:
+def _ticket_detail(ticket: Ticket, db, exclude_internal_comments: bool = False) -> dict:
     d = _ticket_summary(ticket, db)
     is_task = _is_task(ticket, db)
     is_subtask = is_task and ticket.parent_task_id is not None
@@ -575,7 +575,8 @@ def _ticket_detail(ticket: Ticket, db) -> dict:
         "close_eligible": _close_eligible(ticket),
         "valid_actions": [s for s in STATUSES if s != ticket.status] if is_task
                           else ticket_fsm.valid_triggers(ticket.status),
-        "comments": [_comment_to_dict(c) for c in CommentRepository(db).list_for_ticket(ticket.id)],
+        "comments": [_comment_to_dict(c) for c in CommentRepository(db).list_for_ticket(ticket.id)
+                     if not (exclude_internal_comments and c.visibility == "internal")],
         "transitions": _transitions_with_sla(db, ticket),
         "assignments": TicketRepository(db).list_assignments(ticket.id),
         "reassignments": TicketRepository(db).list_reassignments(ticket.id),
@@ -635,6 +636,14 @@ def _actor_context(db) -> tuple[uuid.UUID, bool, uuid.UUID | None]:
     can_manage = current_user_has("tickets", "assign")
     resource = ResourceRepository(db).get_by_user_id(user.id)
     return user.id, can_manage, resource.id if resource else None
+
+
+def _resolve_client_scope(db, user) -> tuple[uuid.UUID, uuid.UUID] | None:
+    """(client_id, client_contact_id) del Usuario/cliente autenticado (spec 046, research.md
+    Decisión 2/3) — `None` si la cuenta no tiene `client_contact` asociado (edge case de
+    spec.md: la lista/detalle deben responder vacío/404, nunca datos de otro Cliente)."""
+    contact = ClientContactRepository(db).get_by_user_id(user.id)
+    return (contact.client_id, contact.id) if contact else None
 
 
 def _get_ticket_or_404(db, ticket_id: str):
@@ -725,6 +734,9 @@ class TicketList(Resource):
         "sla_expiring_within_hours": {"description": "Tickets con SLA corriendo cuyo tiempo "
                                                        "restante cae dentro de N horas (Fase 4, "
                                                        "FR-009)", "type": "integer"},
+        "mine": {"description": "true: acota a los registros donde el Usuario/cliente es "
+                                 "creador o solicitante explícito (spec 046 US6, 'Asignado a "
+                                 "mí') — sin efecto fuera de tickets:view_own", "type": "boolean"},
     })
     @ns.response(200, "Listado de tickets", _ticket_list_out)
     @ns.response(400, "Parámetros inválidos", _error)
@@ -734,11 +746,16 @@ class TicketList(Resource):
     @require_authenticated()
     def get(self):
         """Listado paginado con filtros combinables. Con solo `tickets:view_own`
-        (Usuario/cliente) se ignora cualquier filtro y se fuerza `created_by = usuario actual`.
-        Con solo `tickets:view_assigned` (Resolutor, spec 038 US1) se preservan los demás
-        filtros recibidos pero se fuerza `assignee_id = resource_id del actor`, ignorando
-        cualquier `assignee_id` enviado en la query — sin recurso propio, devuelve una página
-        vacía en vez de error."""
+        (Usuario/cliente, spec 046 US2) se fuerza `client_id` al Cliente del actor (resuelto vía
+        su `client_contact`) y se preservan los demás filtros recibidos, siempre acotados a ese
+        Cliente — un `client_id` ajeno enviado en la query se ignora, y un `project_id` que no
+        pertenezca a ese Cliente también se ignora. Sin `client_contact` asociado, devuelve una
+        página vacía en vez de error. `mine=true` (spec 046 US6, "Asignado a mí") acota además
+        a los registros donde el Usuario/cliente es creador o solicitante explícito, siempre
+        dentro del Cliente ya forzado. Con solo `tickets:view_assigned` (Resolutor, spec 038 US1)
+        se preservan los demás filtros recibidos pero se fuerza `assignee_id = resource_id del
+        actor`, ignorando cualquier `assignee_id` enviado en la query — sin recurso propio,
+        devuelve una página vacía en vez de error."""
         has_view = current_user_has("tickets", "view")
         has_view_own = current_user_has("tickets", "view_own")
         has_view_assigned = current_user_has("tickets", "view_assigned")
@@ -751,9 +768,8 @@ class TicketList(Resource):
             return {"error": "validation_error", "message": "page y page_size deben ser enteros"}, 400
         own_only = has_view_own and not has_view
         assigned_only = has_view_assigned and not has_view and not has_view_own
-        statuses = None if own_only else (request.args.getlist("status") or None)
         sla_expiring_within_hours = None
-        if not own_only and request.args.get("sla_expiring_within_hours") is not None:
+        if request.args.get("sla_expiring_within_hours") is not None:
             try:
                 sla_expiring_within_hours = int(request.args["sla_expiring_within_hours"])
             except ValueError:
@@ -767,21 +783,37 @@ class TicketList(Resource):
                 if not actor_resource:
                     return {"items": [], "total": 0, "page": page, "page_size": page_size}, 200
                 forced_assignee_id = actor_resource.id
+            forced_client_id = None
+            mine_created_by = mine_contact_id = None
+            if own_only:
+                scope = _resolve_client_scope(db, g.current_user)
+                if not scope:
+                    return {"items": [], "total": 0, "page": page, "page_size": page_size}, 200
+                forced_client_id = scope[0]
+                if request.args.get("mine", "").lower() == "true":
+                    mine_created_by, mine_contact_id = g.current_user.id, scope[1]
+            project_id = parse_uuid(request.args.get("project_id") or "") or None
+            if own_only and project_id:
+                project = ProjectRepository(db).get_by_id(project_id)
+                if not project or project.client_id != forced_client_id:
+                    project_id = None
             items, total = TicketRepository(db).list_paginated(
                 page=page, page_size=page_size,
-                search=None if own_only else (request.args.get("search", "").strip() or None),
-                client_id=None if own_only else (parse_uuid(request.args.get("client_id") or "") or None),
-                project_id=None if own_only else (parse_uuid(request.args.get("project_id") or "") or None),
-                statuses=statuses,
-                priority=None if own_only else (request.args.get("priority") or None),
-                severity=None if own_only else (request.args.get("severity") or None),
-                ticket_type=None if own_only else (request.args.get("ticket_type") or None),
+                search=request.args.get("search", "").strip() or None,
+                client_id=forced_client_id if own_only else (
+                    parse_uuid(request.args.get("client_id") or "") or None),
+                project_id=project_id,
+                statuses=request.args.getlist("status") or None,
+                priority=request.args.get("priority") or None,
+                severity=request.args.get("severity") or None,
+                ticket_type=request.args.get("ticket_type") or None,
                 assignee_id=forced_assignee_id if assigned_only else (
-                    None if own_only else (parse_uuid(request.args.get("assignee_id") or "") or None)),
-                escalation_level=None if own_only else (request.args.get("escalation_level") or None),
+                    parse_uuid(request.args.get("assignee_id") or "") or None),
+                escalation_level=request.args.get("escalation_level") or None,
                 sort=request.args.get("sort", "urgency"),
-                created_by=g.current_user.id if own_only else None,
-                sla_status=None if own_only else (request.args.get("sla_status") or None),
+                created_by=mine_created_by,
+                requester_client_contact_id=mine_contact_id,
+                sla_status=request.args.get("sla_status") or None,
                 sla_expiring_within_hours=sla_expiring_within_hours,
             )
             return {"items": [_ticket_summary(t, db) for t in items],
@@ -1053,9 +1085,10 @@ class TicketDetail(Resource):
     @require_authenticated()
     def get(self, ticket_id: str):
         """Detalle completo: campos, locked_fields, close_eligible, historiales. Con solo
-        `tickets:view_own` (Usuario/cliente), un ticket ajeno responde 404 (no 403 — no confirma
-        su existencia). Con solo `tickets:view_assigned` (Resolutor, spec 038 US1), un ticket no
-        asignado al actor responde igual 404."""
+        `tickets:view_own` (Usuario/cliente, spec 046 US2), un ticket de otro Cliente responde
+        404 (no 403 — no confirma su existencia); uno del mismo Cliente es visible aunque lo
+        haya creado otro `client_contact` de esa misma empresa. Con solo `tickets:view_assigned`
+        (Resolutor, spec 038 US1), un ticket no asignado al actor responde igual 404."""
         has_view = current_user_has("tickets", "view")
         has_view_own = current_user_has("tickets", "view_own")
         has_view_assigned = current_user_has("tickets", "view_assigned")
@@ -1068,13 +1101,14 @@ class TicketDetail(Resource):
                 return err
             if not has_view:
                 if has_view_own:
-                    if ticket.created_by != g.current_user.id:
+                    scope = _resolve_client_scope(db, g.current_user)
+                    if not scope or ticket.client_id != scope[0]:
                         return {"error": "not_found", "message": "Ticket no encontrado"}, 404
                 else:
                     actor_resource = ResourceRepository(db).get_by_user_id(g.current_user.id)
                     if not actor_resource or ticket.assignee_id != actor_resource.id:
                         return {"error": "not_found", "message": "Ticket no encontrado"}, 404
-            return _ticket_detail(ticket, db), 200
+            return _ticket_detail(ticket, db, exclude_internal_comments=(has_view_own and not has_view)), 200
         except Exception:
             return server_error()
 
@@ -1414,13 +1448,24 @@ class TicketComments(Resource):
     @ns.response(201, "Comentario registrado (y transición aplicada si el tipo lo dispara)", _comment_result_out)
     @ns.response(400, "Tipo inválido, comentario vacío o adjunto no permitido", _error)
     @ns.response(401, "No autenticado", _error)
-    @ns.response(403, "Sin permiso, o ticket no asignado al Resolutor (FR-028)", _error)
-    @ns.response(404, "Ticket no encontrado", _error)
+    @ns.response(403, "Sin permiso, ticket no asignado al Resolutor (FR-028), o el Usuario/"
+                      "cliente intentó un tipo distinto de respuesta_usuario (spec 046 US4)",
+                      _error)
+    @ns.response(404, "Ticket no encontrado (o, para tickets:respond_client, de otro Cliente)",
+                      _error)
     @ns.response(409, "Transición no permitida desde el estado actual", _error)
     @ns.response(500, "Error interno del servidor", _error)
-    @require_permission("tickets", "transition")
+    @require_authenticated()
     def post(self, ticket_id: str):
-        """Comentario tipificado: ejecuta la transición de la matriz atómicamente (FR-014)."""
+        """Comentario tipificado: ejecuta la transición de la matriz atómicamente (FR-014).
+
+        `tickets:respond_client` (Usuario/cliente, spec 046 US4) alcanza también este endpoint,
+        pero solo para `comment_type=respuesta_usuario` sobre un ticket de su propio Cliente —
+        la restricción de tipo vive en `CommentService.validate`."""
+        has_transition = current_user_has("tickets", "transition")
+        has_respond_client = current_user_has("tickets", "respond_client")
+        if not (has_transition or has_respond_client):
+            return {"error": "forbidden", "message": "Acceso denegado"}, 403
         if request.content_type and "multipart/form-data" in request.content_type:
             comment_type = request.form.get("comment_type", "")
             body = request.form.get("body", "")
@@ -1437,9 +1482,15 @@ class TicketComments(Resource):
             ticket, err = _get_ticket_or_404(db, ticket_id)
             if err:
                 return err
+            actor_is_client = has_respond_client and not has_transition
+            if actor_is_client:
+                scope = _resolve_client_scope(db, g.current_user)
+                if not scope or ticket.client_id != scope[0]:
+                    return {"error": "not_found", "message": "Ticket no encontrado"}, 404
             actor_id, can_manage, actor_resource_id = _actor_context(db)
             trigger = _comment_svc.validate(ticket, comment_type, body, actor_id,
-                                            can_manage, actor_resource_id)
+                                            can_manage, actor_resource_id,
+                                            actor_is_client=actor_is_client)
 
             # valida adjuntos ANTES de escribir nada
             staged = []

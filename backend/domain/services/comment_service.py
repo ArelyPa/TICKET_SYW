@@ -30,22 +30,33 @@ MANUAL_COMMENT_TRIGGERS: dict[str, Optional[str]] = {
 class CommentService:
     def validate(self, ticket: Ticket, comment_type: str, body: str,
                  actor_user_id: uuid.UUID, actor_can_manage: bool,
-                 actor_resource_id: Optional[uuid.UUID]) -> Optional[str]:
-        """Valida tipo/autoría y devuelve el trigger FSM a ejecutar (o None)."""
+                 actor_resource_id: Optional[uuid.UUID],
+                 actor_is_client: bool = False) -> Optional[str]:
+        """Valida tipo/autoría y devuelve el trigger FSM a ejecutar (o None).
+
+        `actor_is_client` (spec 046, US4): actor autenticado solo con `tickets:respond_client`
+        (Usuario/cliente) — únicamente puede registrar `respuesta_usuario`, nunca otro tipo
+        (evita que este rol externo dispare `comentario_interno` u otras transiciones de staff
+        por este mismo endpoint compartido)."""
         if comment_type not in COMMENT_TYPES:
             raise CommentError("validation_error", "Tipo de comentario desconocido")
         if comment_type not in MANUAL_COMMENT_TRIGGERS:
             raise CommentError(
                 "validation_error",
                 f"El tipo '{comment_type}' no se registra por esta vía")
+        if actor_is_client and comment_type != "respuesta_usuario":
+            raise CommentError(
+                "forbidden", "Solo puedes responder a una solicitud de información",
+                status_code=403)
         if not strip_html(body or "").strip():
             raise CommentError("validation_error", "El comentario no puede estar vacío")
 
         trigger = MANUAL_COMMENT_TRIGGERS[comment_type]
         if trigger is not None:
             # FR-028: un Resolutor solo transiciona tickets asignados a él;
-            # Coordinador/QM/Admin (actor_can_manage) pueden sobre cualquiera.
-            if not actor_can_manage:
+            # Coordinador/QM/Admin (actor_can_manage) pueden sobre cualquiera; un Usuario/
+            # cliente (actor_is_client) puede responder sin estar "asignado" (no tiene Recurso).
+            if not actor_can_manage and not actor_is_client:
                 if actor_resource_id is None or ticket.assignee_id != actor_resource_id:
                     raise CommentError(
                         "forbidden", "Solo puedes avanzar tickets asignados a ti",

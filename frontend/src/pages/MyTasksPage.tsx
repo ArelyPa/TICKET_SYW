@@ -11,13 +11,17 @@ import PriorityBadge from '../components/tickets/PriorityBadge'
 import SavedFiltersBar from '../components/tickets/SavedFiltersBar'
 import SortIndicator from '../components/tickets/SortIndicator'
 import type { TicketFilterCriteria } from '../store/savedFiltersStore'
+import { useAuthStore } from '../store/authStore'
 import { palette, vivid } from '../theme'
 
 /** "Mis Tareas" (Fase 2.2, US3): arranca con el filtro "Asignado a mí" preaplicado (FR-012),
  * resuelto vía `resourceService.me()` — mismo patrón que ya usa `WorkSessionsPage.tsx`. Comparte
- * el mecanismo de filtros guardados con `TicketsPage` (FR-014). */
+ * el mecanismo de filtros guardados con `TicketsPage` (FR-014). Un Usuario/cliente (spec 046,
+ * US6) no tiene Recurso propio — usa en su lugar `mine: true` (creador o solicitante). */
 export default function MyTasksPage() {
   const navigate = useNavigate()
+  const { role } = useAuthStore()
+  const isEncargado = role?.name === 'Usuario/cliente'
   const [tickets, setTickets] = useState<TicketListItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -27,9 +31,13 @@ export default function MyTasksPage() {
   const [sort, setSort] = useState('urgency')
 
   useEffect(() => {
+    if (isEncargado) {
+      setCriteria({ mine: true })
+      return
+    }
     resourceService.me().then(resource => setCriteria({ assignee_id: resource.id }))
       .catch(() => message.error('No se pudo resolver tu recurso asociado'))
-  }, [])
+  }, [isEncargado])
 
   const load = useCallback(async () => {
     if (!criteria) return
@@ -43,6 +51,7 @@ export default function MyTasksPage() {
         priority: criteria.priority,
         severity: criteria.severity,
         assignee_id: criteria.assignee_id,
+        mine: criteria.mine,
         sort,
       })
       setTickets(res.items)
@@ -119,9 +128,11 @@ export default function MyTasksPage() {
         (que no usan Lista) caen en "Sin lista".
       </p>
 
-      <div style={{ marginBottom: 12 }}>
-        <SavedFiltersBar currentCriteria={criteria ?? {}} onApply={applySavedFilter} />
-      </div>
+      {!isEncargado && (
+        <div style={{ marginBottom: 12 }}>
+          <SavedFiltersBar currentCriteria={criteria ?? {}} onApply={applySavedFilter} />
+        </div>
+      )}
 
       <div style={{ marginBottom: 8 }}><SortIndicator value={sort} onChange={setSort} /></div>
 

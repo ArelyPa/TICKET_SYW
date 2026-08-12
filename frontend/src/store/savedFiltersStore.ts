@@ -14,6 +14,9 @@ export interface TicketFilterCriteria {
    * (ver `SavedFiltersBar`, `resourceService.me()`) — solo lo usa el preset "Asignado a mí", así
    * sigue siendo válido aunque cambie el recurso asociado al usuario (research.md Decisión 3). */
   assignee_id?: string
+  /** spec 046 (US6): "Asignado a mí" para Usuario/cliente — creador o solicitante explícito.
+   * Independiente del sentinel `assignee_id: '__me__'` (ese es para Resolutor/recurso). */
+  mine?: boolean
 }
 
 export interface SavedFilter {

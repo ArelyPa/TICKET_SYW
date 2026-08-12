@@ -46,6 +46,8 @@ resolutor / resolutor@sywork.net        | Resolutor    | U3lXb3JrX0RldjIwMjYh
 resolutor2 / resolutor2@sywork.net      | Resolutor    | U3lXb3JrX0RldjIwMjYh
 resolutor3 / resolutor3@sywork.net      | Resolutor    | U3lXb3JrX0RldjIwMjYh
 resolutor4 / resolutor4@sywork.net      | Resolutor    | U3lXb3JrX0RldjIwMjYh
+SyWork_Dev2026!
+
 
 Los 4 Resolutores de arriba tienen además un perfil de Recurso propio con 3 skills asignadas
 del catálogo existente (JDE_GL, JDE_AP, JDE_AR, ORACLE_FUSION, ORACLE_CRM, API_REST,

@@ -58,11 +58,20 @@ class TicketRepository:
                        assignee_id: uuid.UUID | None = None, escalation_level: str | None = None,
                        sort: str = "urgency",
                        created_by: uuid.UUID | None = None,
+                       requester_client_contact_id: uuid.UUID | None = None,
                        sla_status: str | None = None,
                        sla_expiring_within_hours: int | None = None) -> tuple[list[Ticket], int]:
         q = self._db.query(TicketModel)
-        if created_by:
+        if created_by and requester_client_contact_id:
+            # spec 046 (US6, "Asignado a mí" para Usuario/cliente): creador O solicitante
+            # explícito — dos columnas distintas (user_id vs. client_contact_id).
+            from sqlalchemy import or_
+            q = q.filter(or_(TicketModel.created_by == created_by,
+                             TicketModel.client_contact_id == requester_client_contact_id))
+        elif created_by:
             q = q.filter(TicketModel.created_by == created_by)
+        elif requester_client_contact_id:
+            q = q.filter(TicketModel.client_contact_id == requester_client_contact_id)
         if search:
             like = f"%{search}%"
             filters = [TicketModel.title.ilike(like)]

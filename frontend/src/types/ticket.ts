@@ -268,6 +268,8 @@ export interface TicketFilters {
   /** Fase 4, spec 014 — indicadores agregados de SLA (Historia 3). */
   sla_status?: TicketSlaState['status']
   sla_expiring_within_hours?: number
+  /** spec 046 (US6): "Asignado a mí" para Usuario/cliente — creador o solicitante explícito. */
+  mine?: boolean
 }
 
 export interface PanelRow {

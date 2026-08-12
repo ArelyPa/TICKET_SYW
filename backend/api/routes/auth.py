@@ -19,6 +19,7 @@ from backend.api.routes._shared import error_model, server_error
 from backend.infra.repositories.user_repo import UserRepository
 from backend.infra.repositories.role_repo import RoleRepository
 from backend.infra.database import get_db
+from backend.domain.entities.user import USUARIO_CLIENTE_ROLE_NAME
 from backend.domain.services.auth_service import AuthService
 from backend.infra.email.mailer import send_password_reset_email
 
@@ -27,6 +28,13 @@ _logger = logging.getLogger(__name__)
 
 ALLOWED_DOMAIN = "sywork.net"
 _auth_svc = AuthService()
+
+# spec 046 (FR-003): enforcement estricto de pestaña de Login vs. rol de la cuenta. `login_mode`
+# es opcional — si se omite, el login funciona igual que antes de esta feature (sin enforcement).
+_LOGIN_MODE_ROLES = {
+    "team": {"Admin", "Coordinador", "QM", "Resolutor"},
+    "client_portal": {USUARIO_CLIENTE_ROLE_NAME},
+}
 
 # ── Swagger models ────────────────────────────────────────────────────────────
 
@@ -53,6 +61,10 @@ _user_out = ns.model("AuthUser", {
 _login_input = ns.model("LoginInput", {
     "username_or_email": fields.String(required=True, description="Username o email @sywork.net", example="coordinador"),
     "password": fields.String(required=True, description="Contraseña"),
+    "login_mode": fields.String(description="'team' (Admin/Coordinador/QM/Resolutor) o "
+                                "'client_portal' (Usuario/cliente) — spec 046 FR-003. Opcional: "
+                                "si se omite, no se valida el rol contra la pestaña de origen.",
+                                enum=["team", "client_portal"]),
 })
 
 _forgot_password_input = ns.model("ForgotPasswordInput", {
@@ -107,6 +119,7 @@ class AuthLogin(Resource):
         data = request.get_json(silent=True) or {}
         identifier = (data.get("username_or_email") or "").strip()
         password = data.get("password") or ""
+        login_mode = data.get("login_mode")
         if not identifier or not password:
             return {"error": "validation_error", "message": "username_or_email y password son requeridos"}, 400
 
@@ -115,6 +128,10 @@ class AuthLogin(Resource):
             repo = UserRepository(db)
             user = repo.get_by_username_or_email(identifier)
             if not user or not user.active or not _auth_svc.verify_password(password, user.password_hash):
+                return {"error": "unauthorized", "message": "Usuario o contraseña incorrectos"}, 401
+            if login_mode in _LOGIN_MODE_ROLES and user.role.name not in _LOGIN_MODE_ROLES[login_mode]:
+                # Mismo mensaje genérico que credenciales inválidas: no confirma si la cuenta
+                # existe ni su rol (FR-003).
                 return {"error": "unauthorized", "message": "Usuario o contraseña incorrectos"}, 401
 
             repo.update_last_login(user.id)
