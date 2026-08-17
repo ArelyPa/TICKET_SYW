@@ -9,10 +9,12 @@
 | OBS-0003 | Inicio de sesión | Mejora | Rechazada | Arely Pazmiño | ITER-002 | — | Mensaje de validación de credenciales no específico (usuario vs contraseña) — Rechazada (Desarrollador, decisión de negocio confirmada): diferenciar el mensaje habilita enumeración de usuarios válidos (anti-patrón de seguridad); se mantiene el mensaje genérico "Usuario o contraseña incorrectos", consistente con el patrón ya usado en `/api/auth/forgot-password` |
 | OBS-0004 | Tickets | Mejora | Verificada | Arely Pazmiño | ITER-002 | — | Falta confirmación al eliminar un filtro |
 | OBS-0005 | Proyectos > Nuevo Proyecto | Mejora | Verificada | Arely Pazmiño | ITER-002 | — | Falta buscador en el selector de clientes al crear proyecto |
-| OBS-0006 | Clientes > Nuevo Cliente | Mejora | Lista para Validar | Arely Pazmiño | ITER-002 | — | Falta mensaje de confirmación al crear un cliente |
+| OBS-0006 | Clientes > Nuevo Cliente | Mejora | Falta Validar | Arely Pazmiño | ITER-002 | — | Falta mensaje de confirmación al crear un cliente 
+Se verificó que al crear un cliente el sistema permanece cargando y posteriormente muestra el registro creado, pero no presenta un mensaje de confirmación, Pendiente de validación en ITER-010.|
 | OBS-0007 | Clientes > Nuevo Cliente | Defecto | Verificada | Arely Pazmiño | ITER-002 | — | Campo Teléfono acepta letras y no valida longitud mínima |
 | OBS-0008 | Clientes > Editar Cliente | Defecto | Verificada | Arely Pazmiño | ITER-002 | — | Campos VPN muestran información cruzada entre clientes |
-| OBS-0009 | Proyectos > Nuevo Proyecto | Mejora | Lista para Validar | Arely Pazmiño | ITER-002 | — | Falta mensaje de confirmación al crear un proyecto |
+| OBS-0009 | Proyectos > Nuevo Proyecto | Mejora | Falta validar | Arely Pazmiño | ITER-002 | — | Falta mensaje de confirmación al crear un proyecto 
+Se verificó que al crear un proyecto el sistema permanece cargando y posteriormente muestra el registro creado, pero no presenta un mensaje de confirmación, Pendiente de validación en ITER-010.|
 | OBS-0010 | Proyectos > Nuevo/Editar Proyecto | Defecto | Verificada | Arely Pazmiño | ITER-002 | — | Validaciones insuficientes en nombre de proyecto/listas (longitud, caracteres, duplicados) |
 | OBS-0011 | Proyectos > Nuevo/Editar Proyecto | Defecto | Verificada | Arely Pazmiño | ITER-002 | — | Validación inconsistente de fechas del proyecto — "fin posterior a inicio" (estricto, cualquier fecha) + "fecha de inicio no en un mes anterior al actual" solo al CREAR (decisión de producto: no se re-valida al EDITAR, para no romper proyectos ya cargados retroactivamente cuyo inicio real es anterior al alta en el sistema) |
 | OBS-0012 | Proyectos > Nuevo/Editar Proyecto | Defecto | Verificada | Arely Pazmiño | ITER-002 | — | Validación insuficiente en campos monetarios (negativos, formato, separadores) |
@@ -39,11 +41,12 @@
 | OBS-0033 | Tickets > Nuevo Ticket | Defecto | Verificada | Arely Pazmiño | ITER-004 | — | Título del ticket permite ingresar solo espacios en blanco |
 | OBS-0034 | Tickets > Nuevo Ticket | Mejora | Verificada | Arely Pazmiño | ITER-004 | — | Revisar validación de caracteres especiales/emojis en el título del ticket |
 | OBS-0035 | Tickets > Detalle del Ticket > Registro de tiempos | Defecto | Verificada | Arely Pazmiño | ITER-004 | — | Registro de tiempo continúa disponible/activo después de cerrar el ticket |
-| OBS-0036 | Tickets > Registro de tiempos | Mejora | Lista para Validar | Arely Pazmiño | ITER-004 | — | Registro de tiempo permite actividad fuera del horario laboral del calendario |
-| OBS-0037 | Equipo > Perfil del recurso / Calendario | Mejora | Lista para Validar | Arely Pazmiño | ITER-004 | — | Calendario del recurso no muestra la configuración de jornada laboral |
-| OBS-0038 | Tickets > Detalle del Ticket > SLA | Defecto | Lista para Validar | Arely Pazmiño | ITER-005 | — | SLA contabiliza tiempo fuera del horario laboral al cambiar el estado del ticket |
-| OBS-0039 | Tickets > Detalle del Ticket > SLA | Defecto | Lista para Validar | Arely Pazmiño | ITER-005 | — | SLA contabiliza tiempo incorrectamente cuando el ticket es creado fuera del horario laboral |
-| OBS-0040 | Tickets > Panel de Asignación / Detalle del Ticket | Mejora | Lista para Validar | Arely Pazmiño | ITER-005 | — | Se permite asignar un ticket fuera del horario laboral |
+| OBS-0036 | Tickets > Registro de tiempos | Mejora | Rechazada | Arely Pazmiño | ITER-004 | — | Registro de tiempo permite actividad fuera del horario laboral del calendario
+Se confirmó que el registro de tiempo fuera de la jornada laboral es un comportamiento permitido y esperado por el sistema. |
+| OBS-0037 | Equipo > Perfil del recurso / Calendario | Mejora | Lista para Validar | Arely Pazmiño | ITER-004 | — | Calendario del recurso no muestra la configuración de jornada laboral Observacion en el EA-0028 de documento errores 6 |
+| OBS-0038 | Tickets > Detalle del Ticket > SLA | Defecto | Verificada | Arely Pazmiño | ITER-005 | — | SLA contabiliza tiempo fuera del horario laboral al cambiar el estado del ticket |
+| OBS-0039 | Tickets > Detalle del Ticket > SLA | Defecto | Verificado | Arely Pazmiño | ITER-005 | — | SLA contabiliza tiempo incorrectamente cuando el ticket es creado fuera del horario laboral |
+| OBS-0040 | Tickets > Panel de Asignación / Detalle del Ticket | Mejora | Verificada | Arely Pazmiño | ITER-005 | — | Se permite asignar un ticket fuera del horario laboral |
 | OBS-0041 | Clientes > Accesos y conexiones | Mejora | Lista para Validar | Camilo Reyes | ITER-006 | — | Catálogo de tipos de acceso administrable, credenciales múltiples por acceso y adjunto por acceso (amplía OBS-0001) |
 | OBS-0042 | Tickets > Detalle del Ticket | Mejora | Lista para Validar | Juan Murcia | ITER-007 | — | Scroll excesivo por historial de comentarios extenso; reorganizar layout (Comentarios y acciones fijos a la derecha, historial con scroll interno) |
 | OBS-0043 | SLA Configurable | Mejora | Lista para Validar | Juan Murcia | ITER-007 | — | No se identifica el cliente en proyectos homónimos (filtro, creación y tabla de reglas de SLA) |
